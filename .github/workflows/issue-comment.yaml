@@ -5,6 +5,11 @@ on:
   issues:
     types: [opened]
 
+# grant write permissions to the workflow
+permissions:
+  contents: write
+  issues: write
+
 # comment on the issue saying it's been acknowledged by the team
 jobs:
   comment:
