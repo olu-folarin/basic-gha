@@ -1,0 +1,31 @@
+# first, give the workflow a name
+name: hello-world-msg
+
+# next, define when the workflow should run
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+# define the jobs that the workflow should run
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    # steps that the job will run
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Print a hello world message
+      run: echo "Hello, world!"
+      shell: bash
+  goodluck:
+    runs-on: ubuntu-24.04
+    steps:
+        - name: print a goodluck message
+          run: echo "Goodluck!"
+          shell: bash
