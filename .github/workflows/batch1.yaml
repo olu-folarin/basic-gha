@@ -50,7 +50,7 @@ jobs:
         curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.42.1
 
     - name: Lint
-      run: golangci-lint run
+      run: golangci-lint run ./...
 
   # test for go code
   test:
@@ -68,7 +68,7 @@ jobs:
     - name: Ensure go.mod exists
       run: |
         if [ ! -f go.mod ]; then
-          go mod init
+          go mod init example.com/m
         fi
 
     - name: Test
