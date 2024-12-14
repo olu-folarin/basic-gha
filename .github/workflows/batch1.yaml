@@ -35,39 +35,52 @@ jobs:
   # lint for go code
   lint:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+    - name: Checkout repository
+      uses: actions/checkout@v2
 
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.16
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16
 
-      - name: Lint
-        run: golangci-lint run
+    - name: Install golangci-lint
+      run: |
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.42.1
+
+    - name: Lint
+      run: golangci-lint run
 
   # test for go code
   test:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+    - name: Checkout repository
+      uses: actions/checkout@v2
 
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.16
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16
 
-      - name: Test
-        run: go test -v ./...
+    - name: Ensure go.mod exists
+      run: |
+        if [ ! -f go.mod ]; then
+          go mod init
+        fi
+
+    - name: Test
+      run: go test -v ./...
 
   # scan with semgrep
   semgrep:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
 
-      - name: Scan with Semgrep
-        run: docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep --config=p/r2c-ci
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Scan with Semgrep
+      run: docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep semgrep --config=p/r2c-ci
