@@ -10,6 +10,10 @@ on:
     branches:
       - main
 
+defaults:
+  run:
+    shell: bash
+
 # define the jobs that the workflow should run
 jobs:
   build:
@@ -22,10 +26,8 @@ jobs:
 
     - name: Print a hello world message
       run: echo "Hello, world!"
-      shell: bash
   goodluck:
     runs-on: ubuntu-24.04
     steps:
         - name: print a goodluck message
           run: echo "Goodluck!"
-          shell: bash
