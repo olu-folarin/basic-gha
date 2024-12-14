@@ -31,3 +31,43 @@ jobs:
     steps:
         - name: print a goodluck message
           run: echo "Goodluck!"
+
+  # lint for go code
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.16
+
+      - name: Lint
+        run: golangci-lint run
+
+  # test for go code
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.16
+
+      - name: Test
+        run: go test -v ./...
+
+  # scan with semgrep
+  semgrep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Scan with Semgrep
+        run: docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep --config=p/r2c-ci
