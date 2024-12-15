@@ -25,7 +25,7 @@ func main() {
 	// Intentional security issue: using MD5 for hashing
     data := []byte("sensitive data")
     hash := md5.Sum(data)
-    fmt.Printf("MD5 hash of 'sensitive data': %x\n", hash)
+    fmt.Printf("MD5 hash of 'sensitive data' in here: %x\n", hash)
 }
 
 // generateRandomDomain generates a random domain name with either http or https protocol
@@ -50,5 +50,5 @@ func generateRandomDomain() string {
 	}
 
 	// Return the full URL
-	return fmt.Sprintf("%s://%s.com", protocol , domain.String())
+	return fmt.Sprintf("%s://%s.com", protocol, domain.String())
 }
