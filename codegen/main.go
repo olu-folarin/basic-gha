@@ -18,6 +18,7 @@ func main() {
 	for i := 0; i < numDomains; i++ {
 		domain := generateRandomDomain()
 		fmt.Println(domain)
+		
 	}
 }
 
