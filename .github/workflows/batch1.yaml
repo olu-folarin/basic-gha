@@ -96,9 +96,8 @@ jobs:
       run: cd codegen && go test -v ./...
 
 # scan with semgrep
-# scan with semgrep
-  # scan with semgrep
   semgrep:
+    needs: [build, goodluck, test]
     runs-on: ubuntu-latest
 
     steps:
@@ -119,12 +118,8 @@ jobs:
           let commentBody = '## Semgrep Scan Results\n\n';
           if (results.results.length > 0) {
             results.results.forEach(result => {
-              commentBody += `### ${result.check_id}\n`;
-              commentBody += `**File:** ${result.path}\n`;
-              commentBody += `**Line:** ${result.start.line}\n`;
-              commentBody += `**Message:** ${result.extra.message}\n`;
-              commentBody += `**Details:** ${result.extra.metadata?.severity || 'N/A'}\n`;
-              commentBody += `**Fix:** ${result.extra.metadata?.fix || 'N/A'}\n\n`;
+            commentBody += `### ${result.check_id}\n`;
+            commentBody += `**Reason:** ${result.extra.message}\n\n`;
             });
           } else {
             commentBody += 'No vulnerabilities found.';
