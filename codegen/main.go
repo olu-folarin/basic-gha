@@ -50,5 +50,5 @@ func generateRandomDomain() string {
 	}
 
 	// Return the full URL
-	return fmt.Sprintf("%s://%s.com", protocol, domain.String())
+	return fmt.Sprintf("%s://%s.com", protocol , domain.String())
 }
