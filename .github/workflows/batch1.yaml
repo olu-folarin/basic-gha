@@ -37,20 +37,40 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.20'
+      - name: Set GOPATH
+        run: echo "GOPATH=$HOME/go" >> $GITHUB_ENV
 
-    - name: Install golangci-lint
-      run: |
-        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.59.1
+      - name: Set GOMODCACHE
+        run: echo "GOMODCACHE=$HOME/go/pkg/mod" >> $GITHUB_ENV
 
-    - name: Run golangci-lint
-      run: golangci-lint run ./codegen/...
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20'
+
+      - name: Print Go Environment
+        run: go env
+
+      - name: Install golangci-lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.59.1
+
+      - name: Ensure go.mod exists
+        run: |
+          cd codegen
+          if [ ! -f go.mod ]; then
+            go mod init github.com/olu-folarin/basic-gha/codegen
+          fi
+
+      - name: Tidy Go Modules
+        run: cd codegen && go mod tidy
+
+      - name: Run golangci-lint
+        run: golangci-lint run ./codegen/...
+
 
   # test for go code
   test:
