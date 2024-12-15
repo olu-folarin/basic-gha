@@ -43,10 +43,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.20'
+          go-version: '1.22'
 
       - name: Set GOPATH
         run: echo "GOPATH=$HOME/go" >> $GITHUB_ENV
+
+      - name: Set GOMODCACHE
+        run: echo "GOMODCACHE=$HOME/go/pkg/mod" >> $GITHUB_ENV
 
       - name: Install golangci-lint
         run: |
@@ -61,11 +64,18 @@ jobs:
         run: |
           cd codegen
           if [ ! -f go.mod ]; then
-            go mod init example.com/m
+            go mod init github.com/olu-folarin/basic-gha/codegen
           fi
+
+      - name: Tidy Go Modules
+        run: cd codegen && go mod tidy
+
+      - name: Print Go Environment
+        run: go env
 
       - name: Lint
         run: golangci-lint run -v --timeout=5s ./codegen/...
+
 
 
   # test for go code
