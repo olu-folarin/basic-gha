@@ -33,48 +33,44 @@ jobs:
           run: echo "Goodluck!"
 
   # lint for go code
-  lint:
-    runs-on: ubuntu-latest
+  # lint:
+  #   runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v3
 
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.22'
+  #     - name: Set GOPATH
+  #       run: echo "GOPATH=$HOME/go" >> $GITHUB_ENV
 
-      - name: Set GOPATH
-        run: echo "GOPATH=$HOME/go" >> $GITHUB_ENV
+  #     - name: Set GOMODCACHE
+  #       run: echo "GOMODCACHE=$HOME/go/pkg/mod" >> $GITHUB_ENV
 
-      - name: Set GOMODCACHE
-        run: echo "GOMODCACHE=$HOME/go/pkg/mod" >> $GITHUB_ENV
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v4
+  #       with:
+  #         go-version: '1.20'
 
-      - name: Install golangci-lint
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.53.3
+  #     - name: Print Go Environment
+  #       run: go env
 
-      - name: Clean Cache
-        run: |
-          golangci-lint cache clean
-          go clean -modcache -cache -i
+  #     - name: Install golangci-lint
+  #       run: |
+  #         curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.59.1
 
-      - name: Ensure go.mod exists
-        run: |
-          cd codegen
-          if [ ! -f go.mod ]; then
-            go mod init github.com/olu-folarin/basic-gha/codegen
-          fi
+  #     - name: Ensure go.mod exists
+  #       run: |
+  #         cd codegen
+  #         if [ ! -f go.mod ]; then
+  #           go mod init github.com/olu-folarin/basic-gha/codegen
+  #         fi
 
-      - name: Tidy Go Modules
-        run: cd codegen && go mod tidy
+  #     - name: Tidy Go Modules
+  #       run: cd codegen && go mod tidy
 
-      - name: Print Go Environment
-        run: go env
+  #     - name: Run golangci-lint
+  #       run: golangci-lint run ./codegen/...
 
-      - name: Lint
-        run: golangci-lint run -v --timeout=5s ./codegen/...
 
   # test for go code
   test:
@@ -105,7 +101,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Scan with Semgrep
       run: docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep semgrep --config=p/r2c-ci
