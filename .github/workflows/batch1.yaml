@@ -59,6 +59,12 @@ jobs:
     - name: Tidy Go Modules
       run: cd codegen && go mod tidy
 
+    - name: Print Go Environment
+      run: cd codegen && go env
+
+    - name: List Files in codegen
+      run: ls -la codegen
+
     - name: Lint
       run: cd codegen && golangci-lint run ./...
 
