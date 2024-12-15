@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/md5"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -20,6 +21,11 @@ func main() {
 		fmt.Println(domain)
 		
 	}
+
+	// Intentional security issue: using MD5 for hashing
+    data := []byte("sensitive data")
+    hash := md5.Sum(data)
+    fmt.Printf("MD5 hash of 'sensitive data': %x\n", hash)
 }
 
 // generateRandomDomain generates a random domain name with either http or https protocol
