@@ -95,9 +95,9 @@ jobs:
     - name: Test
       run: cd codegen && go test -v ./...
 
-  # scan with semgrep
 # scan with semgrep
   semgrep:
+    needs: [build, goodluck, test]
     runs-on: ubuntu-latest
 
     steps:
@@ -105,4 +105,29 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Scan with Semgrep
-      run: docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep semgrep --config=p/security-audit --error
+      run: docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep semgrep --config=p/security-audit --error --json > semgrep_results.json
+
+    - name: Post Semgrep results as a comment
+      if: failure()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const results = JSON.parse(fs.readFileSync('semgrep_results.json', 'utf8'));
+
+          let commentBody = '## Semgrep Scan Results\n\n';
+          if (results.results.length > 0) {
+            results.results.forEach(result => {
+            commentBody += `### ${result.check_id}\n`;
+            commentBody += `**Reason:** ${result.extra.message}\n\n`;
+            });
+          } else {
+            commentBody += 'No vulnerabilities found.';
+          }
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: commentBody
+          });
