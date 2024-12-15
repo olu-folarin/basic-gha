@@ -76,8 +76,6 @@ jobs:
       - name: Lint
         run: golangci-lint run -v --timeout=5s ./codegen/...
 
-
-
   # test for go code
   test:
     runs-on: ubuntu-latest
