@@ -101,7 +101,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Scan with Semgrep
       run: docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep semgrep --config=p/r2c-ci
