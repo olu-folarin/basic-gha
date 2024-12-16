@@ -23,7 +23,7 @@ func main() {
 	}
 
 	// Intentional security issue: using MD5 for hashing
-    data := []byte("sensitive data")
+    data := []byte("sensitive data ")
     hash := md5.Sum(data)
     fmt.Printf("MD5 hash of 'sensitive data' in: %x\n", hash)
 }
