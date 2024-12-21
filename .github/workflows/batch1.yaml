@@ -1,7 +1,5 @@
-# first, give the workflow a name
 name: hello-world-msg
 
-# next, define when the workflow should run
 on:
   push:
     branches:
@@ -14,65 +12,23 @@ defaults:
   run:
     shell: bash
 
-# define the jobs that the workflow should run
 jobs:
   build:
     runs-on: ubuntu-latest
 
-    # steps that the job will run
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
 
     - name: Print a hello world message
       run: echo "Hello, world!"
+
   goodluck:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
-        - name: print a goodluck message
-          run: echo "Goodluck!"
+    - name: Print a goodluck message
+      run: echo "Goodluck!"
 
-  # lint for go code
-  # lint:
-  #   runs-on: ubuntu-latest
-
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v3
-
-  #     - name: Set GOPATH
-  #       run: echo "GOPATH=$HOME/go" >> $GITHUB_ENV
-
-  #     - name: Set GOMODCACHE
-  #       run: echo "GOMODCACHE=$HOME/go/pkg/mod" >> $GITHUB_ENV
-
-  #     - name: Set up Go
-  #       uses: actions/setup-go@v4
-  #       with:
-  #         go-version: '1.20'
-
-  #     - name: Print Go Environment
-  #       run: go env
-
-  #     - name: Install golangci-lint
-  #       run: |
-  #         curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.59.1
-
-  #     - name: Ensure go.mod exists
-  #       run: |
-  #         cd codegen
-  #         if [ ! -f go.mod ]; then
-  #           go mod init github.com/olu-folarin/basic-gha/codegen
-  #         fi
-
-  #     - name: Tidy Go Modules
-  #       run: cd codegen && go mod tidy
-
-  #     - name: Run golangci-lint
-  #       run: golangci-lint run ./codegen/...
-
-
-  # test for go code
   test:
     runs-on: ubuntu-latest
 
@@ -95,7 +51,29 @@ jobs:
     - name: Test
       run: cd codegen && go test -v ./...
 
-# scan with semgrep
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+      with:
+        registry-type: public
+
+    - name: Build, tag, and push docker image to Amazon ECR Public
+      env:
+        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        REGISTRY_ALIAS: my-ecr-public-registry-alias
+        REPOSITORY: my-ecr-public-repo
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build -t $REGISTRY/$REGISTRY_ALIAS/$REPOSITORY:$IMAGE_TAG .
+        docker push $REGISTRY/$REGISTRY_ALIAS/$REPOSITORY:$IMAGE_TAG
+
   semgrep:
     needs: [build, goodluck, test]
     runs-on: ubuntu-latest
@@ -118,8 +96,8 @@ jobs:
           let commentBody = '## Semgrep Scan Results\n\n';
           if (results.results.length > 0) {
             results.results.forEach(result => {
-            commentBody += `### ${result.check_id}\n`;
-            commentBody += `**Reason:** ${result.extra.message}\n\n`;
+              commentBody += `### ${result.check_id}\n`;
+              commentBody += `**Reason:** ${result.extra.message}\n\n`;
             });
           } else {
             commentBody += 'No vulnerabilities found.';
