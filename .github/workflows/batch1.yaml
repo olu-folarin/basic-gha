@@ -14,26 +14,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    # Checkout the repository to the runner
     - name: Checkout repository
       uses: actions/checkout@v2
 
+    # List all files in the repository for debugging purposes
     - name: List files for debugging
       run: ls -R
 
+    # List all files in the codegen directory for debugging purposes
     - name: List files in codegen directory
       run: ls -R codegen
 
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
-
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
-
+    # Verify that the Dockerfile exists in the codegen directory
     - name: Verify Dockerfile exists
       run: |
         if [ ! -f codegen/Dockerfile ]; then
@@ -41,6 +34,20 @@ jobs:
           exit 1
         fi
 
+    # Configure AWS credentials for pushing the Docker image to ECR
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    # Login to Amazon ECR
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    # Build, tag, and push the Docker image to Amazon ECR
     - name: Build, tag, and push docker image to Amazon ECR
       env:
         AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
@@ -57,14 +64,17 @@ jobs:
     needs: [build]
 
     steps:
+    # Checkout the repository to the runner
     - name: Checkout repository
       uses: actions/checkout@v2
 
+    # Set up Go environment
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
         go-version: 1.16
 
+    # Ensure go.mod exists in the codegen directory
     - name: Ensure go.mod exists
       run: |
         cd codegen
@@ -72,6 +82,7 @@ jobs:
           go mod init example.com/m
         fi
 
+    # Run Go tests
     - name: Test
       run: cd codegen && go test -v ./...
 
@@ -80,12 +91,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    # Checkout the repository to the runner
     - name: Checkout repository
       uses: actions/checkout@v3
 
+    # Scan the code with Semgrep
     - name: Scan with Semgrep
       run: docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep semgrep --config=p/security-audit --error --json > semgrep_results.json 
 
+    # Post Semgrep results as a comment on the pull request
     - name: Post Semgrep results as a comment
       if: failure()
       uses: actions/github-script@v6
