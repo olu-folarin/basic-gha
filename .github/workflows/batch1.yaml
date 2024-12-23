@@ -23,6 +23,9 @@ jobs:
     - name: List files for debugging
       run: ls -R
 
+    - name: List files in codegen directory
+      run: ls -R codegen
+
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
