@@ -16,17 +16,17 @@ COPY . .
 # Build the Go application
 RUN go build -o main . 
 
-# Use a minimal base image for the final image
+# Use a minimal base image for the final image 
 FROM alpine:latest
 
-# Set the working directory inside the container to /root
+# Set the working directory inside the container to /root 
 WORKDIR /root/
 
-# Copy the binary from the builder stage into the final image
+# Copy the binary from the builder stage into the final image 
 COPY --from=builder /app/main . 
 
 # Expose the application port on the container
 EXPOSE 8080
 
 # Command to run the application when the container starts
-CMD ["./main"]
+CMD ["./main"] 
