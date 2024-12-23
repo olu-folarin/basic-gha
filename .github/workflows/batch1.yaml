@@ -39,7 +39,7 @@ jobs:
         IMAGE_TAG: ${{ github.sha }}
       run: |
         IMAGE_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}"
-        docker build -t $IMAGE_URI -f codegen/Dockerfile codegen
+        docker build -t $IMAGE_URI -f codegen/Dockerfile .
         docker push $IMAGE_URI
 
   test:
