@@ -1,0 +1,32 @@
+rules:
+  - id: hardcoded-credentials
+    patterns:
+      - pattern: |
+          $VAR = "password"
+    message: "Hardcoded credentials detected"
+    languages: [go]
+    severity: ERROR
+
+  - id: sql-injection
+    patterns:
+      - pattern: |
+          fmt.Sprintf("SELECT * FROM users WHERE username = '%s'", $USER_INPUT)
+    message: "Potential SQL Injection vulnerability"
+    languages: [go]
+    severity: ERROR
+
+  - id: insecure-random
+    patterns:
+      - pattern: |
+          rand.Intn($RANGE)
+    message: "Insecure random number generation detected. Use crypto/rand instead."
+    languages: [go]
+    severity: ERROR
+
+  - id: insecure-http
+    patterns:
+      - pattern: |
+          http.Get("http://$URL")
+    message: "Insecure HTTP request detected. Use HTTPS instead."
+    languages: [go]
+    severity: ERROR
