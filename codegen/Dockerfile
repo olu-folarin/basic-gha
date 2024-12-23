@@ -5,7 +5,7 @@ FROM golang:1.16 as builder
 WORKDIR /app
 
 # Copy the Go modules manifests
-COPY go.mod go.sum ./
+COPY go.mod ./
 
 # Download the Go modules
 RUN go mod download 
