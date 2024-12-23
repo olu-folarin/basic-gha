@@ -39,7 +39,7 @@ func generateRandomDomain() string {
 
 	// Build the domain name
 	for i := 0; i < length; i++ {
-		domain.WriteByte(charset[rand.Intn(len(charset))])
+		domain.WriteByte(charset[rand.Intn(len(charset))]) 
 		fmt.Println(domain.String())
 	}
 
