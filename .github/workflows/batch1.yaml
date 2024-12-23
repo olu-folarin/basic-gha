@@ -1,4 +1,4 @@
-name: hello-world-msg
+name: CI Pipeline
 
 on:
   push:
@@ -20,17 +20,20 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    - name: Print a hello world message
-      run: echo "Hello, world!"
-
-  goodluck:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Print a goodluck message
-      run: echo "Goodluck!"
+    - name: Build, tag, and push docker image to Amazon ECR
+      env:
+        AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+        AWS_REGION: ${{ secrets.AWS_REGION }}
+        ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        IMAGE_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}"
+        docker build -t $IMAGE_URI -f codegen/Dockerfile codegen
+        docker push $IMAGE_URI
 
   test:
     runs-on: ubuntu-latest
+    needs: [build]
 
     steps:
     - name: Checkout repository
@@ -60,20 +63,10 @@ jobs:
 
     - name: Login to Amazon ECR
       id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
-
-    - name: Build, tag, and push docker image to Amazon ECR Public
-      env:
-        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        REGISTRY_ALIAS: my-ecr-public-registry-alias
-        REPOSITORY: workflow-push # Replace with your repository name
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        docker build -t $REGISTRY/$REGISTRY_ALIAS/$REPOSITORY:$IMAGE_TAG .
-        docker push $REGISTRY/$REGISTRY_ALIAS/$REPOSITORY:$IMAGE_TAG
+      uses: aws-actions/amazon-ecr-login@v1
 
   semgrep:
-    needs: [build, goodluck, test]
+    needs: [test]
     runs-on: ubuntu-latest
 
     steps:
