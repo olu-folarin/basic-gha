@@ -22,7 +22,7 @@ jobs:
     - name: Scan with Semgrep
       run: |
         echo "Running Semgrep scan..."
-        docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep semgrep --config=p/security-audit --config=p/secrets --config=p/ci --config=p/sqli --config=custom-rules.yaml --error --json > semgrep_results.json
+        docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep semgrep --config=p/security-audit --config=p/secrets --config=p/ci --config=p/sqli --config=.github/workflows/custom-rules.yaml --error --json > semgrep_results.json
 
     # Post Semgrep results as a comment on the pull request
     - name: Post Semgrep results as a comment
