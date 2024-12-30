@@ -73,6 +73,8 @@ jobs:
             results.results.forEach(result => {
               commentBody += `### ${result.check_id}\n`;
               commentBody += `**Reason:** ${result.extra.message}\n\n`;
+              commentBody += `**File:** ${result.path}\n`;
+              commentBody += `**Line:** ${result.start.line}\n\n`;
             });
           } else {
             commentBody += 'No vulnerabilities found.';
