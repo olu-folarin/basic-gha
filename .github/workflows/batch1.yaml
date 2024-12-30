@@ -59,6 +59,12 @@ jobs:
     - name: Print Semgrep results
       run: cat semgrep_results.json
 
+    # Print Semgrep command output for debugging
+    - name: Print Semgrep command output
+      run: |
+        echo "Semgrep command output:"
+        docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep semgrep --config=p/security-audit --config=p/secrets --config=p/ci --config=p/sqli --error
+
     # Post Semgrep results as a comment on the pull request
     - name: Post Semgrep results as a comment
       if: always()
