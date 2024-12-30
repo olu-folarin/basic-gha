@@ -2,11 +2,9 @@ package main
 
 import (
     "crypto/md5"
-    "crypto/rand"
     "database/sql"
     "fmt"
     "log"
-    // "math/big"
     "math/rand"
     "net/http"
     "strings"
@@ -36,6 +34,7 @@ func main() {
     // Hardcoded credentials
     username := "admin"
     password := "password123"
+    fmt.Printf("Username: %s, Password: %s\n", username, password)
 
     // SQL Injection vulnerability
     userInput := "'; DROP TABLE users; --"
