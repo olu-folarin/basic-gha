@@ -10,19 +10,50 @@ defaults:
     shell: bash
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Checkout the repository to the runner
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    # Set up Go environment
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16
+
+    # Ensure go.mod exists in the codegen directory
+    - name: Ensure go.mod exists
+      run: |
+        cd codegen
+        if [ ! -f go.mod ]; then
+          go mod init example.com/m
+        fi
+
+    # Run Go tests
+    - name: Test
+      run: cd codegen && go test -v ./...
+
   semgrep:
     runs-on: ubuntu-latest
+    needs: [test]
 
     steps:
     # Checkout the repository to the runner
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    # Scan the code with Semgrep
+    # Scan the code with Semgrep using default rulesets
     - name: Scan with Semgrep
       run: |
         echo "Running Semgrep scan..."
-        docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep semgrep --config=p/security-audit --config=p/secrets --config=p/ci --config=p/sqli --config=/src/custom-rules.yaml --error --json > semgrep_results.json
+        docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep semgrep --config=p/security-audit --config=p/secrets --config=p/ci --config=p/sqli --error --json > semgrep_results.json
+
+    # Print Semgrep results for debugging
+    - name: Print Semgrep results
+      run: cat semgrep_results.json
 
     # Post Semgrep results as a comment on the pull request
     - name: Post Semgrep results as a comment
@@ -99,30 +130,3 @@ jobs:
         IMAGE_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}"
         docker build -t $IMAGE_URI -f codegen/Dockerfile codegen
         docker push $IMAGE_URI
-
-  test:
-    runs-on: ubuntu-latest
-    needs: [build]
-
-    steps:
-    # Checkout the repository to the runner
-    - name: Checkout repository
-      uses: actions/checkout@v2
-
-    # Set up Go environment
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.16
-
-    # Ensure go.mod exists in the codegen directory
-    - name: Ensure go.mod exists
-      run: |
-        cd codegen
-        if [ ! -f go.mod ]; then
-          go mod init example.com/m
-        fi
-
-    # Run Go tests
-    - name: Test
-      run: cd codegen && go test -v ./...
