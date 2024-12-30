@@ -22,7 +22,7 @@ func main() {
 
     // Generate and print random domains
     for i := 0; i < numDomains; i++ {
-        domain := generateRandomDomain() 
+        domain := generateRandomDomain()
         fmt.Println(domain)
     }
 
