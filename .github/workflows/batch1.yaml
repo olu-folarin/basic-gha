@@ -49,15 +49,21 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    # Scan the code with Semgrep using default rulesets
+    # Scan the code with Semgrep using valid rulesets
     - name: Scan with Semgrep
       run: |
         echo "Running Semgrep scan..."
-        docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep semgrep --config=p/security-audit --config=p/secrets --config=p/ci --config=p/sqli --error --json > semgrep_results.json || cat semgrep_results.json
+        docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep semgrep --config=p/security-audit --config=p/secrets --config=p/ci --error --json > semgrep_results.json || cat semgrep_results.json
 
     # Print Semgrep results for debugging
     - name: Print Semgrep results
       run: cat semgrep_results.json
+
+    # Print Semgrep command output for debugging
+    - name: Print Semgrep command output
+      run: |
+        echo "Semgrep command output:"
+        docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep semgrep --config=p/security-audit --config=p/secrets --config=p/ci --error
 
     # Post Semgrep results as a comment on the pull request
     - name: Post Semgrep results as a comment
@@ -127,6 +133,7 @@ jobs:
 
     # Build, tag, and push the Docker image to Amazon ECR
     - name: Build, tag, and push docker image to Amazon ECR
+      if: success()
       env:
         AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
         AWS_REGION: ${{ secrets.AWS_REGION }}
