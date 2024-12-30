@@ -2,10 +2,11 @@ package main
 
 import (
     "crypto/md5"
+    "crypto/rand"
     "database/sql"
     "fmt"
     "log"
-    "crypto/rand"
+    "math/big"
     "net/http"
     "strings"
     "time"
@@ -14,8 +15,8 @@ import (
 )
 
 func main() {
-    // Seed the random number generator
-    rand.Seed(time.Now().UnixNano())
+    // Seed the random number generator (not needed for crypto/rand)
+    // rand.Seed(time.Now().UnixNano())
 
     // Number of domains to generate
     numDomains := 10
@@ -23,13 +24,13 @@ func main() {
     // Generate and print random domains
     for i := 0; i < numDomains; i++ {
         domain := generateRandomDomain()
-        fmt.Println(domain) 
+        fmt.Println(domain)
     }
 
     // Intentional security issue: using MD5 for hashing
     data := []byte("sensitive data")
     hash := md5.Sum(data)
-    fmt.Printf("MD5 hash of 'sensitive data': %x\n", hash) 
+    fmt.Printf("MD5 hash of 'sensitive data': %x\n", hash)
 
     // Hardcoded credentials
     username := "admin"
@@ -42,7 +43,10 @@ func main() {
     executeQuery(query)
 
     // Insecure random number generation
-    insecureRandomNumber := rand.Intn(100)
+    insecureRandomNumber, err := cryptoRandInt(100)
+    if err != nil {
+        log.Fatal(err)
+    }
     fmt.Printf("Insecure random number: %d\n", insecureRandomNumber)
 
     // Insecure HTTP request
@@ -61,16 +65,28 @@ func generateRandomDomain() string {
     var domain strings.Builder
 
     // Generate a random length for the domain name between 5 and 10 characters
-    length := rand.Intn(6) + 5
+    length, err := cryptoRandInt(6)
+    if err != nil {
+        log.Fatal(err)
+    }
+    length += 5
 
     // Build the domain name
     for i := 0; i < length; i++ {
-        domain.WriteByte(charset[rand.Intn(len(charset))])
+        charIndex, err := cryptoRandInt(len(charset))
+        if err != nil {
+            log.Fatal(err)
+        }
+        domain.WriteByte(charset[charIndex])
     }
 
     // Choose between http and https randomly
     protocol := "http"
-    if rand.Intn(2) == 1 {
+    protocolChoice, err := cryptoRandInt(2)
+    if err != nil {
+        log.Fatal(err)
+    }
+    if protocolChoice == 1 {
         protocol = "https"
     }
 
@@ -87,10 +103,19 @@ func executeQuery(query string) {
     }
     defer db.Close()
 
-    // Execute the query
+	// Execute the query
     _, err = db.Exec(query)
     if err != nil {
         log.Fatal(err)
     }
     fmt.Println("Query executed:", query)
+}
+
+// cryptoRandInt generates a random integer using crypto/rand
+func cryptoRandInt(max int) (int, error) {
+    nBig, err := rand.Int(rand.Reader, big.NewInt(int64(max)))
+    if err != nil {
+        return 0, err
+    }
+    return int(nBig.Int64()), nil
 }
