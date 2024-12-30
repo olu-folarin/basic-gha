@@ -1,7 +1,7 @@
 package main
 
 import (
-    "crypto/md5"
+    "crypto/sha256"
     "crypto/rand"
     "database/sql"
     "fmt"
@@ -14,9 +14,6 @@ import (
 )
 
 func main() {
-    // Seed the random number generator (not needed for crypto/rand)
-    // rand.Seed(time.Now().UnixNano())
-
     // Number of domains to generate
     numDomains := 10
 
@@ -26,10 +23,10 @@ func main() {
         fmt.Println(domain)
     }
 
-    // Intentional security issue: using MD5 for hashing
+    // Intentional security issue: using SHA-256 for hashing
     data := []byte("sensitive data")
-    hash := md5.Sum(data)
-    fmt.Printf("MD5 hash of 'sensitive data': %x\n", hash)
+    hash := sha256.Sum256(data)
+    fmt.Printf("SHA-256 hash of 'sensitive data': %x\n", hash)
 
     // Hardcoded credentials
     username := "admin"
@@ -102,7 +99,7 @@ func executeQuery(query string) {
     }
     defer db.Close()
 
-	// Execute the query
+    // Execute the query
     _, err = db.Exec(query)
     if err != nil {
         log.Fatal(err)
