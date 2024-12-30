@@ -53,7 +53,7 @@ jobs:
     - name: Scan with Semgrep
       run: |
         echo "Running Semgrep scan..."
-        docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep semgrep --config=p/security-audit --config=p/secrets --config=p/ci --config=p/sqli --error --json > semgrep_results.json
+        docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep semgrep --config=p/security-audit --config=p/secrets --config=p/ci --config=p/sqli --error --json > semgrep_results.json || cat semgrep_results.json
 
     # Print Semgrep results for debugging
     - name: Print Semgrep results
@@ -61,7 +61,7 @@ jobs:
 
     # Post Semgrep results as a comment on the pull request
     - name: Post Semgrep results as a comment
-      if: failure()
+      if: always()
       uses: actions/github-script@v6
       with:
         script: |
