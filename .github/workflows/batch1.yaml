@@ -133,6 +133,7 @@ jobs:
 
     # Build, tag, and push the Docker image to Amazon ECR
     - name: Build, tag, and push docker image to Amazon ECR
+      if: success()
       env:
         AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
         AWS_REGION: ${{ secrets.AWS_REGION }}
