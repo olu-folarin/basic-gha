@@ -5,7 +5,7 @@ import (
     "database/sql"
     "fmt"
     "log"
-    "math/rand"
+    "crypto/rand"
     "net/http"
     "strings"
     "time"
