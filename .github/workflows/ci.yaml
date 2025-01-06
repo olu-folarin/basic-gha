@@ -61,7 +61,7 @@ jobs:
 
     # Upload Gitleaks results as an artifact
     - name: Upload Gitleaks results
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: gitleaks-results
         path: gitleaks_results.json
@@ -93,7 +93,7 @@ jobs:
 
     # Upload Semgrep results as an artifact
     - name: Upload Semgrep results
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: semgrep-results
         path: semgrep_results.json
