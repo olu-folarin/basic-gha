@@ -1,8 +1,9 @@
 package main
 
 import (
-    "crypto/sha256"
+    "crypto/md5"
     "crypto/rand"
+    "crypto/sha256"
     "database/sql"
     "fmt"
     "log"
@@ -28,10 +29,18 @@ func main() {
     hash := sha256.Sum256(data)
     fmt.Printf("SHA-256 hash of 'sensitive data': %x\n", hash)
 
+    // Intentional security issue: using MD5 for hashing
+    md5Hash := md5.Sum(data)
+    fmt.Printf("MD5 hash of 'sensitive data': %x\n", md5Hash)
+
     // Hardcoded credentials
     username := "admin"
     password := "password123"
     fmt.Printf("Username: %s, Password: %s\n", username, password)
+
+    // Hardcoded API key (for Gitleaks to detect)
+    apiKey := "12345-abcde-67890-fghij"
+    fmt.Printf("API Key: %s\n", apiKey)
 
     // SQL Injection vulnerability
     userInput := "'; DROP TABLE users; --"
