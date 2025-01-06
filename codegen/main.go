@@ -1,8 +1,9 @@
 package main
 
 import (
-    "crypto/sha256"
+    "crypto/md5"
     "crypto/rand"
+    "crypto/sha256"
     "database/sql"
     "fmt"
     "log"
@@ -28,10 +29,18 @@ func main() {
     hash := sha256.Sum256(data)
     fmt.Printf("SHA-256 hash of 'sensitive data': %x\n", hash)
 
+    // Intentional security issue: using MD5 for hashing
+    md5Hash := md5.Sum(data)
+    fmt.Printf("MD5 hash of 'sensitive data': %x\n", md5Hash)
+
     // Hardcoded credentials
     username := "admin"
     password := "password123"
     fmt.Printf("Username: %s, Password: %s\n", username, password)
+
+    // Hardcoded API key (for Gitleaks to detect)
+    apiKey := "12345-abcde-67890-fghij"
+    fmt.Printf("API Key: %s\n", apiKey)
 
     // SQL Injection vulnerability
     userInput := "'; DROP TABLE users; --"
@@ -90,28 +99,4 @@ func generateRandomDomain() string {
     return fmt.Sprintf("%s://%s.com", protocol, domain.String())
 }
 
-// executeQuery executes a SQL query
-func executeQuery(query string) {
-    // Open a database connection
-    db, err := sql.Open("mysql", "user:password@/dbname")
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer db.Close()
-
-    // Execute the query
-    _, err = db.Exec(query)
-    if err != nil {
-        log.Fatal(err)
-    }
-    fmt.Println("Query executed:", query)
-}
-
-// cryptoRandInt generates a random integer using crypto/rand
-func cryptoRandInt(max int) (int, error) {
-    nBig, err := rand.Int(rand.Reader, big.NewInt(int64(max)))
-    if err != nil {
-        return 0, err
-    }
-    return int(nBig.Int64()), nil
-}
+// executeQuery executes
