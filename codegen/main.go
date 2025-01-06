@@ -99,4 +99,28 @@ func generateRandomDomain() string {
     return fmt.Sprintf("%s://%s.com", protocol, domain.String())
 }
 
-// executeQuery executes
+// executeQuery executes a SQL query
+func executeQuery(query string) {
+    // Open a database connection
+    db, err := sql.Open("mysql", "user:password@/dbname")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer db.Close()
+
+    // Execute the query
+    _, err = db.Exec(query)
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Println("Query executed:", query)
+}
+
+// cryptoRandInt generates a random integer using crypto/rand
+func cryptoRandInt(max int) (int, error) {
+    nBig, err := rand.Int(rand.Reader, big.NewInt(int64(max)))
+    if err != nil {
+        return 0, err
+    }
+    return int(nBig.Int64()), nil
+}
