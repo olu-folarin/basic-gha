@@ -78,7 +78,7 @@ func generateRandomDomain() string {
 
     // Build the domain name
     for i := 0; i < length; i++ {
-        charIndex, err := cryptoRandInt(len(charset))
+        charIndex, err := cryptoRandInt(len(charset)) 
         if err != nil {
             log.Fatal(err)
         }
