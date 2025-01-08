@@ -143,12 +143,16 @@ jobs:
         DEFECTDOJO_URL: ${{ secrets.DEFECTDOJO_URL }}
         DEFECTDOJO_ENGAGEMENT_ID: ${{ secrets.DEFECTDOJO_ENGAGEMENT_ID }}
       run: |
-        curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
-        -H "Authorization: Token $DEFECTDOJO_API_KEY" \
-        -H "Content-Type: multipart/form-data" \
-        -F "file=@gitleaks_results.json" \
-        -F "scan_type=Gitleaks JSON Report" \
-        -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID"
+        if [ -f gitleaks_results.json ]; then
+          curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
+          -H "Authorization: Token $DEFECTDOJO_API_KEY" \
+          -H "Content-Type: multipart/form-data" \
+          -F "file=@gitleaks_results.json" \
+          -F "scan_type=Gitleaks JSON Report" \
+          -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID"
+        else
+          echo "Gitleaks results not found."
+        fi
 
     - name: Upload Semgrep results to DefectDojo
       env:
@@ -156,12 +160,16 @@ jobs:
         DEFECTDOJO_URL: ${{ secrets.DEFECTDOJO_URL }}
         DEFECTDOJO_ENGAGEMENT_ID: ${{ secrets.DEFECTDOJO_ENGAGEMENT_ID }}
       run: |
-        curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
-        -H "Authorization: Token $DEFECTDOJO_API_KEY" \
-        -H "Content-Type: multipart/form-data" \
-        -F "file=@semgrep_results.json" \
-        -F "scan_type=Semgrep JSON Report" \
-        -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID"
+        if [ -f semgrep_results.json ]; then
+          curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
+          -H "Authorization: Token $DEFECTDOJO_API_KEY" \
+          -H "Content-Type: multipart/form-data" \
+          -F "file=@semgrep_results.json" \
+          -F "scan_type=Semgrep JSON Report" \
+          -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID"
+        else
+          echo "Semgrep results not found."
+        fi
 
   build:
     runs-on: ubuntu-latest
