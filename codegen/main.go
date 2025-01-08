@@ -5,10 +5,13 @@ import (
     "crypto/rand"
     "crypto/sha256"
     "database/sql"
+    "encoding/gob"
     "fmt"
     "log"
     "math/big"
     "net/http"
+    "os"
+    "os/exec"
     "strings"
 
     _ "github.com/go-sql-driver/mysql"
@@ -42,6 +45,13 @@ func main() {
     apiKey := "12345-abcde-67890-fghij"
     fmt.Printf("API Key: %s\n", apiKey)
 
+    // Hardcoded database credentials
+    dbUser := "dbuser"
+    dbPassword := "dbpassword"
+    dbHost := "localhost"
+    dbName := "dbname"
+    fmt.Printf("Database credentials: %s/%s@%s/%s\n", dbUser, dbPassword, dbHost, dbName)
+
     // SQL Injection vulnerability
     userInput := "'; DROP TABLE users; --"
     query := fmt.Sprintf("SELECT * FROM users WHERE username = '%s'", userInput)
@@ -61,6 +71,20 @@ func main() {
     }
     defer resp.Body.Close()
     fmt.Println("Insecure HTTP request made to http://example.com")
+
+    // Insecure deserialization
+    insecureDeserialization()
+
+    // Command injection
+    userCommand := "ls"
+    executeCommand(userCommand)
+
+    // Insecure file permissions
+    createInsecureFile("/tmp/insecure_file.txt")
+
+    // Path traversal
+    userFilePath := "../etc/passwd"
+    readFile(userFilePath)
 }
 
 // generateRandomDomain generates a random domain name with either http or https protocol
@@ -123,4 +147,45 @@ func cryptoRandInt(max int) (int, error) {
         return 0, err
     }
     return int(nBig.Int64()), nil
+}
+
+// insecureDeserialization demonstrates insecure deserialization
+func insecureDeserialization() {
+    var data []byte
+    var obj interface{}
+    decoder := gob.NewDecoder(strings.NewReader(string(data)))
+    err := decoder.Decode(&obj)
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Println("Insecure deserialization completed")
+}
+
+// executeCommand executes a command with user input
+func executeCommand(command string) {
+    cmd := exec.Command(command)
+    output, err := cmd.CombinedOutput()
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("Command output: %s\n", output)
+}
+
+// createInsecureFile creates a file with insecure permissions
+func createInsecureFile(filePath string) {
+    file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY, 0666)
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer file.Close()
+    fmt.Println("Insecure file created:", filePath)
+}
+
+// readFile reads a file specified by user input
+func readFile(filePath string) {
+    data, err := os.ReadFile(filePath)
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("File content: %s\n", data)
 }
