@@ -37,7 +37,6 @@ jobs:
 
   gitleaks:
     runs-on: ubuntu-latest
-    needs: [test]
 
     steps:
     - name: Checkout repository
@@ -51,7 +50,7 @@ jobs:
     - name: Run Gitleaks
       run: |
         echo "Running Gitleaks scan..."
-        gitleaks detect --source . --report-format json --report-path gitleaks_results.json
+        gitleaks detect --source . --report-format json --report-path gitleaks_results.json || true
 
     - name: Check Gitleaks results
       run: |
@@ -69,7 +68,6 @@ jobs:
 
   semgrep:
     runs-on: ubuntu-latest
-    needs: [gitleaks]
 
     steps:
     - name: Checkout repository
@@ -78,7 +76,7 @@ jobs:
     - name: Scan with Semgrep
       run: |
         echo "Running Semgrep scan..."
-        docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep semgrep --config=p/security-audit --config=p/secrets --config=p/ci --json > semgrep_results.json
+        docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep semgrep --config=p/security-audit --config=p/secrets --config=p/ci --json > semgrep_results.json || true
 
     - name: Check Semgrep results
       run: |
@@ -129,7 +127,7 @@ jobs:
 
   defectdojo:
     runs-on: ubuntu-latest
-    needs: [semgrep]
+    needs: [gitleaks, semgrep]
     if: always()
 
     steps:
@@ -158,12 +156,20 @@ jobs:
       run: |
         if [ -f gitleaks_results.json ]; then
           echo "Uploading Gitleaks results to DefectDojo..."
-          curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
+          response=$(curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
           -H "Authorization: Token $DEFECTDOJO_API_KEY" \
           -H "Content-Type: multipart/form-data" \
           -F "file=@gitleaks_results.json" \
           -F "scan_type=Gitleaks JSON Report" \
-          -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" || echo "Failed to upload Gitleaks results"
+          -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" -w "\n%{http_code}")
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          echo "HTTP Status Code: $http_code"
+          echo "Response Body: $body"
+          if [ "$http_code" -ne 201 ]; then
+            echo "Failed to upload Gitleaks results"
+            exit 1
+          fi
         else
           echo "Gitleaks results not found."
         fi
@@ -176,12 +182,20 @@ jobs:
       run: |
         if [ -f semgrep_results.json ]; then
           echo "Uploading Semgrep results to DefectDojo..."
-          curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
+          response=$(curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
           -H "Authorization: Token $DEFECTDOJO_API_KEY" \
           -H "Content-Type: multipart/form-data" \
           -F "file=@semgrep_results.json" \
           -F "scan_type=Semgrep JSON Report" \
-          -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" || echo "Failed to upload Semgrep results"
+          -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" -w "\n%{http_code}")
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          echo "HTTP Status Code: $http_code"
+          echo "Response Body: $body"
+          if [ "$http_code" -ne 201 ]; then
+            echo "Failed to upload Semgrep results"
+            exit 1
+          fi
         else
           echo "Semgrep results not found."
         fi
