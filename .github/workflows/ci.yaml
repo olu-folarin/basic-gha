@@ -125,6 +125,18 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
 
+    - name: Download Gitleaks results
+      uses: actions/download-artifact@v3
+      with:
+        name: gitleaks-results
+        path: .
+
+    - name: Download Semgrep results
+      uses: actions/download-artifact@v3
+      with:
+        name: semgrep-results
+        path: .
+
     - name: Upload Gitleaks results to DefectDojo
       env:
         DEFECTDOJO_API_KEY: ${{ secrets.DEFECTDOJO_API_KEY }}
