@@ -51,7 +51,14 @@ jobs:
     - name: Run Gitleaks
       run: |
         echo "Running Gitleaks scan..."
-        gitleaks detect --source . --report-format json --report-path gitleaks_results.json || true
+        gitleaks detect --source . --report-format json --report-path gitleaks_results.json
+
+    - name: Check Gitleaks results
+      run: |
+        if grep -q '"StartLine":' gitleaks_results.json; then
+          echo "Vulnerabilities found by Gitleaks"
+          exit 1
+        fi
 
     - name: Upload Gitleaks results
       uses: actions/upload-artifact@v3
@@ -71,7 +78,14 @@ jobs:
     - name: Scan with Semgrep
       run: |
         echo "Running Semgrep scan..."
-        docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep semgrep --config=p/security-audit --config=p/secrets --config=p/ci --json > semgrep_results.json || true
+        docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep semgrep --config=p/security-audit --config=p/secrets --config=p/ci --json > semgrep_results.json
+
+    - name: Check Semgrep results
+      run: |
+        if grep -q '"extra":' semgrep_results.json; then
+          echo "Vulnerabilities found by Semgrep"
+          exit 1
+        fi
 
     - name: Upload Semgrep results
       uses: actions/upload-artifact@v3
@@ -173,7 +187,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     needs: [defectdojo]
-    if: success()
+    if: ${{ needs.gitleaks.result == 'success' && needs.semgrep.result == 'success' }}
 
     steps:
     - name: Checkout repository
