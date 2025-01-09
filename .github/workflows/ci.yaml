@@ -15,7 +15,6 @@ env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
   ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
   IMAGE_TAG: ${{ github.sha }}
-  RUNNER_OS_VERSION: 'ubuntu-latest'
 
 defaults:
   run:
@@ -23,7 +22,11 @@ defaults:
 
 jobs:
   test:
-    runs-on: $RUNNER_OS_VERSION
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
 
     steps:
     # Checkout the repository
@@ -53,7 +56,11 @@ jobs:
       run: cd codegen && go test -v ./...
 
   gitleaks:
-    runs-on: $RUNNER_OS_VERSION
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
 
     steps:
     # Checkout the repository
@@ -83,7 +90,11 @@ jobs:
         path: gitleaks_results.json
 
   semgrep:
-    runs-on: $RUNNER_OS_VERSION
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
 
     steps:
     # Checkout the repository
@@ -147,7 +158,11 @@ jobs:
           });
 
   dependabot:
-    runs-on: $RUNNER_OS_VERSION
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
 
     steps:
     # Checkout the repository
@@ -170,7 +185,12 @@ jobs:
         path: codegen/dependabot_results.txt
 
   defectdojo:
-    runs-on: $RUNNER_OS_VERSION
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+
     needs: [gitleaks, semgrep, dependabot]
     if: always()
 
@@ -288,7 +308,12 @@ jobs:
         fi
 
   build:
-    runs-on: $RUNNER_OS_VERSION
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+
     needs: [defectdojo]
     if: ${{ needs.gitleaks.result == 'success' && needs.semgrep.result == 'success' && needs.dependabot.result == 'success' }}
 
