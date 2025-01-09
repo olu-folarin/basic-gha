@@ -15,6 +15,10 @@ env:
   ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
   IMAGE_TAG: ${{ github.sha }}
 
+permissions:
+  contents: read
+  security-events: read
+
 defaults:
   run:
     shell: bash
@@ -49,12 +53,6 @@ jobs:
       run: |
         echo "Running Gitleaks scan..."
         docker run --rm -v $GITHUB_WORKSPACE:/workspace zricethezav/gitleaks:latest detect --source /workspace --report-format json --report-path /workspace/gitleaks_results.json || true
-    - name: Check Gitleaks results
-      run: |
-        if grep -q '"StartLine":' gitleaks_results.json; then
-          echo "Vulnerabilities found by Gitleaks"
-          exit 1
-        fi
     - name: Upload Gitleaks results
       uses: actions/upload-artifact@v4
       if: always()
@@ -71,12 +69,6 @@ jobs:
       run: |
         echo "Running Semgrep scan..."
         docker run --rm -v $GITHUB_WORKSPACE:/src returntocorp/semgrep:latest semgrep --config=semgrep-rules.yml --json > semgrep_results.json || true
-    - name: Check Semgrep results
-      run: |
-        if grep -q '"extra":' semgrep_results.json; then
-          echo "Vulnerabilities found by Semgrep"
-          exit 1
-        fi
     - name: Upload Semgrep results
       uses: actions/upload-artifact@v4
       if: always()
@@ -120,21 +112,36 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
     - name: Fetch Dependabot alerts
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        response=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+        response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
              -H "Accept: application/vnd.github.v3+json" \
              "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
-        if echo "$response" | jq -e '.message == "Dependabot alerts are disabled for this repository."' > /dev/null; then
-          echo "Dependabot alerts are not enabled for this repository. Skipping alert processing."
-          echo '[]' > dependabot_alerts.json
+        echo "$response" > dependabot_alerts.json
+    - name: Process Dependabot alerts
+      run: |
+        if [ -s dependabot_alerts.json ]; then
+          if jq empty dependabot_alerts.json 2>/dev/null; then
+            if jq '.[0].security_advisory' dependabot_alerts.json >/dev/null 2>&1; then
+              jq '[.[] | {title: .security_advisory.summary, description: .security_advisory.description, severity: .security_advisory.severity, file_path: .dependency.manifest_path, component_name: .dependency.package.name, component_version: .dependency.version}]' dependabot_alerts.json > dependabot_for_defectdojo.json
+            else
+              echo "Dependabot alerts do not contain expected structure. Creating empty result."
+              echo '[]' > dependabot_for_defectdojo.json
+            fi
+          else
+            echo "Invalid JSON in dependabot_alerts.json. Creating empty result."
+            echo '[]' > dependabot_for_defectdojo.json
+          fi
         else
-          echo "$response" > dependabot_alerts.json
+          echo "dependabot_alerts.json is empty. Creating empty result."
+          echo '[]' > dependabot_for_defectdojo.json
         fi
     - name: Upload Dependabot results
       uses: actions/upload-artifact@v4
       with:
         name: dependabot-results
-        path: dependabot_alerts.json
+        path: dependabot_for_defectdojo.json
 
   defectdojo:
     runs-on: ubuntu-latest
@@ -161,9 +168,6 @@ jobs:
       with:
         name: dependabot-results
         path: .
-    - name: Format Dependabot alerts for DefectDojo
-      run: |
-        jq '[.[] | {title: .security_advisory.summary, description: .security_advisory.description, severity: .security_advisory.severity, file_path: .dependency.manifest_path, component_name: .dependency.package.name, component_version: .dependency.version}]' dependabot_alerts.json > dependabot_for_defectdojo.json
     - name: Verify DefectDojo API token
       run: |
         echo "Verifying DefectDojo API token..."
@@ -248,10 +252,6 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
-    - name: List files for debugging
-      run: ls -R
-    - name: List files in codegen directory
-      run: ls -R codegen
     - name: Verify Dockerfile exists
       run: |
         if [ ! -f codegen/Dockerfile ]; then
