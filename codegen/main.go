@@ -86,6 +86,15 @@ func main() {
     // Path traversal
     userFilePath := "../etc/passwd"
     readFile(userFilePath)
+
+    // Insecure use of environment variables
+    insecureEnvVarUsage()
+
+    // Insecure use of exec.Command with user input
+    insecureExecCommand(userInput)
+
+    // Insecure use of HTTP client
+    insecureHttpClient()
 }
 
 // generateRandomDomain generates a random domain name with either http or https protocol
@@ -198,4 +207,38 @@ func getEnv(key, fallback string) string {
         return fallback
     }
     return value
+}
+
+// insecureEnvVarUsage demonstrates insecure use of environment variables
+func insecureEnvVarUsage() {
+    // Hardcoded environment variable
+    os.Setenv("SECRET_KEY", "hardcoded_secret_key")
+    secretKey := os.Getenv("SECRET_KEY")
+    fmt.Printf("Secret Key: %s\n", secretKey)
+}
+
+// insecureExecCommand demonstrates insecure use of exec.Command with user input
+func insecureExecCommand(userInput string) {
+    cmd := exec.Command("sh", "-c", userInput)
+    output, err := cmd.CombinedOutput()
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("Command output: %s\n", output)
+}
+
+// insecureHttpClient demonstrates insecure use of HTTP client
+func insecureHttpClient() {
+    client := &http.Client{}
+    req, err := http.NewRequest("GET", "http://example.com", nil)
+    if err != nil {
+        log.Fatal(err)
+    }
+    req.Header.Set("Authorization", "Bearer hardcoded_token")
+    resp, err := client.Do(req)
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer resp.Body.Close()
+    fmt.Println("Insecure HTTP request made with hardcoded token")
 }
