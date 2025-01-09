@@ -15,6 +15,7 @@ import (
     "strings"
 
     _ "github.com/go-sql-driver/mysql"
+    _ "github.com/lib/pq" // Adding an outdated package for Dependabot to detect
 )
 
 func main() {
