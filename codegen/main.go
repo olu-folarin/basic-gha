@@ -1,14 +1,17 @@
 package main
 
 import (
+    "crypto/md5"
     "crypto/rand"
     "crypto/sha256"
     "database/sql"
+    "encoding/gob"
     "fmt"
     "log"
     "math/big"
     "net/http"
     "os"
+    "os/exec"
     "strings"
 
     _ "github.com/go-sql-driver/mysql"
@@ -24,39 +27,64 @@ func main() {
         fmt.Println(domain)
     }
 
-    // Secure hashing using SHA-256
+    // Intentional security issue: using SHA-256 for hashing
     data := []byte("sensitive data")
     hash := sha256.Sum256(data)
     fmt.Printf("SHA-256 hash of 'sensitive data': %x\n", hash)
 
-    // Secure credentials (do not hardcode in production)
-    username := getEnv("DB_USERNAME", "defaultUser")
-    password := getEnv("DB_PASSWORD", "defaultPass")
+    // Intentional security issue: using MD5 for hashing
+    md5Hash := md5.Sum(data)
+    fmt.Printf("MD5 hash of 'sensitive data': %x\n", md5Hash)
+
+    // Hardcoded credentials
+    username := "admin"
+    password := "password123"
     fmt.Printf("Username: %s, Password: %s\n", username, password)
 
-    // Secure API key (do not hardcode in production)
-    apiKey := getEnv("API_KEY", "defaultApiKey")
+    // Hardcoded API key (for Gitleaks to detect)
+    apiKey := "12345-abcde-67890-fghij"
     fmt.Printf("API Key: %s\n", apiKey)
 
-    // Secure SQL query using prepared statements
-    userInput := "exampleUser"
-    query := "SELECT * FROM users WHERE username = ?"
-    executeQuery(query, userInput)
+    // Hardcoded database credentials
+    dbUser := "dbuser"
+    dbPassword := "dbpassword"
+    dbHost := "localhost"
+    dbName := "dbname"
+    fmt.Printf("Database credentials: %s/%s@%s/%s\n", dbUser, dbPassword, dbHost, dbName)
 
-    // Secure random number generation
-    secureRandomNumber, err := cryptoRandInt(100)
+    // SQL Injection vulnerability
+    userInput := "'; DROP TABLE users; --"
+    query := fmt.Sprintf("SELECT * FROM users WHERE username = '%s'", userInput)
+    executeQuery(query)
+
+    // Insecure random number generation
+    insecureRandomNumber, err := cryptoRandInt(100)
     if err != nil {
         log.Fatal(err)
     }
-    fmt.Printf("Secure random number: %d\n", secureRandomNumber)
+    fmt.Printf("Insecure random number: %d\n", insecureRandomNumber)
 
-    // Secure HTTP request
-    resp, err := http.Get("https://example.com")
+    // Insecure HTTP request
+    resp, err := http.Get("http://example.com")
     if err != nil {
         log.Fatal(err)
     }
     defer resp.Body.Close()
-    fmt.Println("Secure HTTP request made to https://example.com")
+    fmt.Println("Insecure HTTP request made to http://example.com")
+
+    // Insecure deserialization
+    insecureDeserialization()
+
+    // Command injection
+    userCommand := "ls"
+    executeCommand(userCommand)
+
+    // Insecure file permissions
+    createInsecureFile("/tmp/insecure_file.txt")
+
+    // Path traversal
+    userFilePath := "../etc/passwd"
+    readFile(userFilePath)
 }
 
 // generateRandomDomain generates a random domain name with either http or https protocol
@@ -95,8 +123,8 @@ func generateRandomDomain() string {
     return fmt.Sprintf("%s://%s.com", protocol, domain.String())
 }
 
-// executeQuery executes a SQL query using prepared statements
-func executeQuery(query string, args ...interface{}) {
+// executeQuery executes a SQL query
+func executeQuery(query string) {
     // Open a database connection
     db, err := sql.Open("mysql", "user:password@/dbname")
     if err != nil {
@@ -104,14 +132,8 @@ func executeQuery(query string, args ...interface{}) {
     }
     defer db.Close()
 
-    // Execute the query using prepared statements
-    stmt, err := db.Prepare(query)
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer stmt.Close()
-
-    _, err = stmt.Exec(args...)
+    // Execute the query
+    _, err = db.Exec(query)
     if err != nil {
         log.Fatal(err)
     }
@@ -125,6 +147,47 @@ func cryptoRandInt(max int) (int, error) {
         return 0, err
     }
     return int(nBig.Int64()), nil
+}
+
+// insecureDeserialization demonstrates insecure deserialization
+func insecureDeserialization() {
+    var data []byte
+    var obj interface{}
+    decoder := gob.NewDecoder(strings.NewReader(string(data)))
+    err := decoder.Decode(&obj)
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Println("Insecure deserialization completed")
+}
+
+// executeCommand executes a command with user input
+func executeCommand(command string) {
+    cmd := exec.Command(command)
+    output, err := cmd.CombinedOutput()
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("Command output: %s\n", output)
+}
+
+// createInsecureFile creates a file with insecure permissions
+func createInsecureFile(filePath string) {
+    file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY, 0666)
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer file.Close()
+    fmt.Println("Insecure file created:", filePath)
+}
+
+// readFile reads a file specified by user input
+func readFile(filePath string) {
+    data, err := os.ReadFile(filePath)
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("File content: %s\n", data)
 }
 
 // getEnv retrieves environment variables with a fallback default value
