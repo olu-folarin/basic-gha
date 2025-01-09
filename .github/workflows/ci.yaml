@@ -5,7 +5,6 @@ on:
     branches:
       - main
 
-# Define environment variables to store repetitive values
 env:
   GITHUB_WORKSPACE: ${{ github.workspace }}
   DEFECTDOJO_API_KEY: ${{ secrets.DEFECTDOJO_API_KEY }}
@@ -25,17 +24,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # Checkout the repository
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    # Set up Go environment
     - name: Set up Go environment
       uses: actions/setup-go@v4
       with:
         go-version: '1.20'
 
-    # Ensure go.mod exists
     - name: Ensure go.mod exists
       run: |
         cd codegen
@@ -43,11 +39,9 @@ jobs:
           go mod init example.com/m
         fi
 
-    # Install dependencies
     - name: Install dependencies
       run: cd codegen && go mod tidy
 
-    # Run Go tests
     - name: Run Go tests
       run: cd codegen && go test -v ./...
 
@@ -55,17 +49,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # Checkout the repository
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    # Run Gitleaks scan using the latest Docker image
     - name: Run Gitleaks
       run: |
         echo "Running Gitleaks scan..."
         docker run --rm -v $GITHUB_WORKSPACE:/workspace zricethezav/gitleaks:latest detect --source /workspace --report-format json --report-path /workspace/gitleaks_results.json || true
 
-    # Check Gitleaks results for vulnerabilities
     - name: Check Gitleaks results
       run: |
         if grep -q '"StartLine":' gitleaks_results.json; then
@@ -73,7 +64,6 @@ jobs:
           exit 1
         fi
 
-    # Upload Gitleaks results as an artifact
     - name: Upload Gitleaks results
       uses: actions/upload-artifact@v4
       if: always()
@@ -85,17 +75,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # Checkout the repository
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    # Run Semgrep scan using the latest Docker image
     - name: Scan with Semgrep
       run: |
         echo "Running Semgrep scan..."
         docker run --rm -v $GITHUB_WORKSPACE:/src returntocorp/semgrep:latest semgrep --config=semgrep-rules.yml --json > semgrep_results.json || true
 
-    # Check Semgrep results for vulnerabilities
     - name: Check Semgrep results
       run: |
         if grep -q '"extra":' semgrep_results.json; then
@@ -103,7 +90,6 @@ jobs:
           exit 1
         fi
 
-    # Upload Semgrep results as an artifact
     - name: Upload Semgrep results
       uses: actions/upload-artifact@v4
       if: always()
@@ -111,7 +97,6 @@ jobs:
         name: semgrep-results
         path: semgrep_results.json
 
-    # Post Semgrep results as a comment on the pull request
     - name: Post Semgrep results as a comment
       if: always()
       uses: actions/github-script@v6
@@ -149,17 +134,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # Checkout the repository
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    # Run dependency check using the latest Docker image
     - name: Check for outdated dependencies
       run: |
         echo "Checking for outdated dependencies..."
         docker run --rm -v $GITHUB_WORKSPACE:/workspace golang:latest bash -c "cd /workspace/codegen && go list -m -u all > dependabot_results.txt || true"
 
-    # Upload Dependabot results as an artifact
     - name: Upload Dependabot results
       uses: actions/upload-artifact@v4
       if: always()
@@ -173,11 +155,9 @@ jobs:
     if: always()
 
     steps:
-    # Checkout the repository
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    # Download Gitleaks results artifact
     - name: Download Gitleaks results
       uses: actions/download-artifact@v4
       continue-on-error: true
@@ -185,7 +165,6 @@ jobs:
         name: gitleaks-results
         path: .
 
-    # Download Semgrep results artifact
     - name: Download Semgrep results
       uses: actions/download-artifact@v4
       continue-on-error: true
@@ -193,7 +172,6 @@ jobs:
         name: semgrep-results
         path: .
 
-    # Download Dependabot results artifact
     - name: Download Dependabot results
       uses: actions/download-artifact@v4
       continue-on-error: true
@@ -201,7 +179,6 @@ jobs:
         name: dependabot-results
         path: .
 
-    # Verify DefectDojo API token
     - name: Verify DefectDojo API token
       run: |
         echo "Verifying DefectDojo API token..."
@@ -216,7 +193,6 @@ jobs:
           exit 1
         fi
 
-    # Upload Gitleaks results to DefectDojo
     - name: Upload Gitleaks results to DefectDojo
       run: |
         if [ -f gitleaks_results.json ]; then
@@ -239,7 +215,6 @@ jobs:
           echo "Gitleaks results not found."
         fi
 
-    # Upload Semgrep results to DefectDojo
     - name: Upload Semgrep results to DefectDojo
       run: |
         if [ -f semgrep_results.json ]; then
@@ -262,7 +237,6 @@ jobs:
           echo "Semgrep results not found."
         fi
 
-    # Upload Dependabot results to DefectDojo
     - name: Upload Dependabot results to DefectDojo
       run: |
         if [ -f codegen/dependabot_results.txt ]; then
@@ -291,27 +265,22 @@ jobs:
     if: ${{ needs.gitleaks.result == 'success' && needs.semgrep.result == 'success' && needs.dependabot.result == 'success' }}
 
     steps:
-    # Checkout the repository
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    # List files for debugging
     - name: List files for debugging
       run: ls -R
 
-    # List files in codegen directory
     - name: List files in codegen directory
       run: ls -R codegen
 
-    # Verify Dockerfile exists
     - name: Verify Dockerfile exists
       run: |
-        if [ ! -f codegen/Dockerfile]; then
+        if [ ! -f codegen/Dockerfile ]; then
           echo "Dockerfile not found!"
           exit 1
         fi
 
-    # Configure AWS Credentials
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
@@ -319,12 +288,10 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ secrets.AWS_REGION }}
 
-    # Login to Amazon ECR
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    # Build, tag, and push docker image to Amazon ECR
     - name: Build, tag, and push docker image to Amazon ECR
       run: |
         IMAGE_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}"
