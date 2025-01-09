@@ -105,7 +105,7 @@ jobs:
     - name: Scan with Semgrep
       run: |
         echo "Running Semgrep scan..."
-        docker run --rm -v $GITHUB_WORKSPACE:/src returntocorp/semgrep:latest semgrep --config=semgrep-rules.yml --json > semgrep_results.json || true
+        docker run --rm -v $GITHUB_WORKSPACE:/src returntocorp/semgrep:latest semgrep --config=p/security-audit --config=p/secrets --config=p/ci --json > semgrep_results.json || true
 
     # Check Semgrep results for vulnerabilities
     - name: Check Semgrep results
