@@ -93,7 +93,7 @@ jobs:
     - name: Scan with Semgrep
       run: |
         echo "Running Semgrep scan..."
-        docker run --rm -v $GITHUB_WORKSPACE:/src returntocorp/semgrep:latest semgrep --config=semgrep-rules.yml --json > semgrep_results.json || true
+        docker run --rm -v $GITHUB_WORKSPACE:/src returntocorp/semgrep:latest semgrep --config=p/security-audit --config=p/secrets --config=p/ci --json > semgrep_results.json || true
 
     # Check Semgrep results for vulnerabilities
     - name: Check Semgrep results
@@ -250,7 +250,7 @@ jobs:
         body=$(echo "$response" | sed '$d')
         echo "HTTP Status Code: $http_code"
         echo "Response Body: $body"
-        if [ "$http_code" -ne 200 ]; then
+        if [ "$http_code" -ne 200]; then
           echo "Invalid DefectDojo API token"
           exit 1
         fi
@@ -270,7 +270,7 @@ jobs:
           body=$(echo "$response" | sed '$d')
           echo "HTTP Status Code: $http_code"
           echo "Response Body: $body"
-          if [ "$http_code" -ne 201 ]; then
+          if [ "$http_code" -ne 201]; then
             echo "Failed to upload Gitleaks results"
             exit 1
           fi
@@ -293,7 +293,7 @@ jobs:
           body=$(echo "$response" | sed '$d')
           echo "HTTP Status Code: $http_code"
           echo "Response Body: $body"
-          if [ "$http_code" -ne 201 ]; then
+          if [ "$http_code" -ne 201]; then
             echo "Failed to upload Semgrep results"
             exit 1
           fi
@@ -322,7 +322,7 @@ jobs:
     # Verify Dockerfile exists
     - name: Verify Dockerfile exists
       run: |
-        if [ ! -f codegen/Dockerfile ]; then
+        if [ ! -f codegen/Dockerfile]; then
           echo "Dockerfile not found!"
           exit 1
         fi
