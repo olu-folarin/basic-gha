@@ -1,7 +1,6 @@
 package main
 
 import (
-    "crypto/md5"
     "crypto/rand"
     "crypto/sha256"
     "database/sql"
@@ -9,6 +8,7 @@ import (
     "log"
     "math/big"
     "net/http"
+    "os"
     "strings"
 
     _ "github.com/go-sql-driver/mysql"
@@ -24,43 +24,39 @@ func main() {
         fmt.Println(domain)
     }
 
-    // Intentional security issue: using SHA-256 for hashing
+    // Secure hashing using SHA-256
     data := []byte("sensitive data")
     hash := sha256.Sum256(data)
     fmt.Printf("SHA-256 hash of 'sensitive data': %x\n", hash)
 
-    // Intentional security issue: using MD5 for hashing
-    md5Hash := md5.Sum(data)
-    fmt.Printf("MD5 hash of 'sensitive data': %x\n", md5Hash)
-
-    // Hardcoded credentials
-    username := "admin"
-    password := "password123"
+    // Secure credentials (do not hardcode in production)
+    username := getEnv("DB_USERNAME", "defaultUser")
+    password := getEnv("DB_PASSWORD", "defaultPass")
     fmt.Printf("Username: %s, Password: %s\n", username, password)
 
-    // Hardcoded API key (for Gitleaks to detect)
-    apiKey := "12345-abcde-67890-fghij"
+    // Secure API key (do not hardcode in production)
+    apiKey := getEnv("API_KEY", "defaultApiKey")
     fmt.Printf("API Key: %s\n", apiKey)
 
-    // SQL Injection vulnerability
-    userInput := "'; DROP TABLE users; --"
-    query := fmt.Sprintf("SELECT * FROM users WHERE username = '%s'", userInput)
-    executeQuery(query)
+    // Secure SQL query using prepared statements
+    userInput := "exampleUser"
+    query := "SELECT * FROM users WHERE username = ?"
+    executeQuery(query, userInput)
 
-    // Insecure random number generation
-    insecureRandomNumber, err := cryptoRandInt(100)
+    // Secure random number generation
+    secureRandomNumber, err := cryptoRandInt(100)
     if err != nil {
         log.Fatal(err)
     }
-    fmt.Printf("Insecure random number: %d\n", insecureRandomNumber)
+    fmt.Printf("Secure random number: %d\n", secureRandomNumber)
 
-    // Insecure HTTP request
-    resp, err := http.Get("http://example.com")
+    // Secure HTTP request
+    resp, err := http.Get("https://example.com")
     if err != nil {
         log.Fatal(err)
     }
     defer resp.Body.Close()
-    fmt.Println("Insecure HTTP request made to http://example.com")
+    fmt.Println("Secure HTTP request made to https://example.com")
 }
 
 // generateRandomDomain generates a random domain name with either http or https protocol
@@ -99,8 +95,8 @@ func generateRandomDomain() string {
     return fmt.Sprintf("%s://%s.com", protocol, domain.String())
 }
 
-// executeQuery executes a SQL query
-func executeQuery(query string) {
+// executeQuery executes a SQL query using prepared statements
+func executeQuery(query string, args ...interface{}) {
     // Open a database connection
     db, err := sql.Open("mysql", "user:password@/dbname")
     if err != nil {
@@ -108,8 +104,14 @@ func executeQuery(query string) {
     }
     defer db.Close()
 
-    // Execute the query
-    _, err = db.Exec(query)
+    // Execute the query using prepared statements
+    stmt, err := db.Prepare(query)
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer stmt.Close()
+
+    _, err = stmt.Exec(args...)
     if err != nil {
         log.Fatal(err)
     }
@@ -123,4 +125,13 @@ func cryptoRandInt(max int) (int, error) {
         return 0, err
     }
     return int(nBig.Int64()), nil
+}
+
+// getEnv retrieves environment variables with a fallback default value
+func getEnv(key, fallback string) string {
+    value := os.Getenv(key)
+    if value == "" {
+        return fallback
+    }
+    return value
 }
