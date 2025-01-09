@@ -15,6 +15,7 @@ env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
   ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
   IMAGE_TAG: ${{ github.sha }}
+  RUNNER_OS_VERSION: 'ubuntu-24.04'
 
 defaults:
   run:
@@ -22,7 +23,7 @@ defaults:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: $RUNNER_OS_VERSION
 
     steps:
     # Checkout the repository
@@ -52,7 +53,7 @@ jobs:
       run: cd codegen && go test -v ./...
 
   gitleaks:
-    runs-on: ubuntu-latest
+    runs-on: $RUNNER_OS_VERSION
 
     steps:
     # Checkout the repository
@@ -82,7 +83,7 @@ jobs:
         path: gitleaks_results.json
 
   semgrep:
-    runs-on: ubuntu-latest
+    runs-on: $RUNNER_OS_VERSION
 
     steps:
     # Checkout the repository
@@ -145,9 +146,32 @@ jobs:
             body: commentBody
           });
 
+  dependabot:
+    runs-on: $RUNNER_OS_VERSION
+
+    steps:
+    # Checkout the repository
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    # Check for outdated dependencies
+    - name: Check for outdated dependencies
+      run: |
+        echo "Checking for outdated dependencies..."
+        cd codegen
+        go list -m -u all > dependabot_results.txt || true
+
+    # Upload Dependabot results as an artifact
+    - name: Upload Dependabot results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: dependabot-results
+        path: codegen/dependabot_results.txt
+
   defectdojo:
-    runs-on: ubuntu-latest
-    needs: [gitleaks, semgrep]
+    runs-on: $RUNNER_OS_VERSION
+    needs: [gitleaks, semgrep, dependabot]
     if: always()
 
     steps:
@@ -169,6 +193,14 @@ jobs:
       continue-on-error: true
       with:
         name: semgrep-results
+        path: .
+
+    # Download Dependabot results artifact
+    - name: Download Dependabot results
+      uses: actions/download-artifact@v4
+      continue-on-error: true
+      with:
+        name: dependabot-results
         path: .
 
     # Verify DefectDojo API token
@@ -232,10 +264,33 @@ jobs:
           echo "Semgrep results not found."
         fi
 
+    # Upload Dependabot results to DefectDojo
+    - name: Upload Dependabot results to DefectDojo
+      run: |
+        if [ -f codegen/dependabot_results.txt ]; then
+          echo "Uploading Dependabot results to DefectDojo..."
+          response=$(curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
+          -H "Authorization: Token $DEFECTDOJO_API_KEY" \
+          -H "Content-Type: multipart/form-data" \
+          -F "file=@codegen/dependabot_results.txt" \
+          -F "scan_type=Dependency Scan" \
+          -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" -w "\n%{http_code}")
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          echo "HTTP Status Code: $http_code"
+          echo "Response Body: $body"
+          if [ "$http_code" -ne 201 ]; then
+            echo "Failed to upload Dependabot results"
+            exit 1
+          fi
+        else
+          echo "Dependabot results not found."
+        fi
+
   build:
-    runs-on: ubuntu-latest
+    runs-on: $RUNNER_OS_VERSION
     needs: [defectdojo]
-    if: ${{ needs.gitleaks.result == 'success' && needs.semgrep.result == 'success' }}
+    if: ${{ needs.gitleaks.result == 'success' && needs.semgrep.result == 'success' && needs.dependabot.result == 'success' }}
 
     steps:
     # Checkout the repository
