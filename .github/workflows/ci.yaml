@@ -24,10 +24,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-
     steps:
     # Checkout the repository
     - name: Checkout repository
@@ -57,10 +53,6 @@ jobs:
 
   gitleaks:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
 
     steps:
     # Checkout the repository
@@ -92,10 +84,6 @@ jobs:
   semgrep:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-
     steps:
     # Checkout the repository
     - name: Checkout repository
@@ -105,7 +93,7 @@ jobs:
     - name: Scan with Semgrep
       run: |
         echo "Running Semgrep scan..."
-        docker run --rm -v $GITHUB_WORKSPACE:/src returntocorp/semgrep:latest semgrep --config=p/security-audit --config=p/secrets --config=p/ci --json > semgrep_results.json || true
+        docker run --rm -v $GITHUB_WORKSPACE:/src returntocorp/semgrep:latest semgrep --config=semgrep-rules.yml --json > semgrep_results.json || true
 
     # Check Semgrep results for vulnerabilities
     - name: Check Semgrep results
@@ -160,21 +148,16 @@ jobs:
   dependabot:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-
     steps:
     # Checkout the repository
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    # Check for outdated dependencies
+    # Run dependency check using the latest Docker image
     - name: Check for outdated dependencies
       run: |
         echo "Checking for outdated dependencies..."
-        cd codegen
-        go list -m -u all > dependabot_results.txt || true
+        docker run --rm -v $GITHUB_WORKSPACE:/workspace golang:latest bash -c "cd /workspace/codegen && go list -m -u all > dependabot_results.txt || true"
 
     # Upload Dependabot results as an artifact
     - name: Upload Dependabot results
@@ -186,11 +169,6 @@ jobs:
 
   defectdojo:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-
     needs: [gitleaks, semgrep, dependabot]
     if: always()
 
@@ -309,11 +287,6 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-
     needs: [defectdojo]
     if: ${{ needs.gitleaks.result == 'success' && needs.semgrep.result == 'success' && needs.dependabot.result == 'success' }}
 
