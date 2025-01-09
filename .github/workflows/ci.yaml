@@ -15,7 +15,7 @@ env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
   ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
   IMAGE_TAG: ${{ github.sha }}
-  RUNNER_OS_VERSION: 'ubuntu-24.04'
+  RUNNER_OS_VERSION: 'ubuntu-latest'
 
 defaults:
   run:
