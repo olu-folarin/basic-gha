@@ -18,6 +18,8 @@ env:
 permissions:
   contents: read
   security-events: read
+  issues: write
+  pull-requests: write
 
 defaults:
   run:
@@ -79,6 +81,7 @@ jobs:
       if: always()
       uses: actions/github-script@v6
       with:
+        github-token: ${{ secrets.PAT_FOR_WORKFLOW }}
         script: |
           const fs = require('fs');
           let results;
@@ -127,9 +130,8 @@ jobs:
     - name: Post Dependabot results as a comment
       if: always()
       uses: actions/github-script@v6
-      env:
-        GITHUB_TOKEN: ${{ secrets.PAT_FOR_WORKFLOW }}
       with:
+        github-token: ${{ secrets.PAT_FOR_WORKFLOW }}
         script: |
           const fs = require('fs');
           let alerts;
@@ -160,7 +162,7 @@ jobs:
 
   defectdojo:
     runs-on: ubuntu-latest
-    needs: [gitleaks, semgrep]
+    needs: [gitleaks, semgrep, dependabot]
     if: always()
     steps:
     - name: Checkout repository
@@ -176,6 +178,12 @@ jobs:
       continue-on-error: true
       with:
         name: semgrep-results
+        path: .
+    - name: Download Dependabot results
+      uses: actions/download-artifact@v4
+      continue-on-error: true
+      with:
+        name: dependabot-results
         path: .
     - name: Verify DefectDojo API token
       run: |
@@ -232,11 +240,32 @@ jobs:
         else
           echo "Semgrep results not found."
         fi
+    - name: Upload Dependabot results to DefectDojo
+      run: |
+        if [ -f dependabot_alerts.json ]; then
+          echo "Uploading Dependabot results to DefectDojo..."
+          response=$(curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
+          -H "Authorization: Token $DEFECTDOJO_API_KEY" \
+          -H "Content-Type: multipart/form-data" \
+          -F "file=@dependabot_alerts.json" \
+          -F "scan_type=Dependency Scan" \
+          -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" -w "\n%{http_code}")
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          echo "HTTP Status Code: $http_code"
+          echo "Response Body: $body"
+          if [ "$http_code" -ne 201 ]; then
+            echo "Failed to upload Dependabot results"
+            exit 1
+          fi
+        else
+          echo "Dependabot results not found."
+        fi
 
   build:
     runs-on: ubuntu-latest
     needs: [defectdojo]
-    if: ${{ needs.gitleaks.result == 'success' && needs.semgrep.result == 'success' }}
+    if: ${{ needs.gitleaks.result == 'success' && needs.semgrep.result == 'success' && needs.dependabot.result == 'success' }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
