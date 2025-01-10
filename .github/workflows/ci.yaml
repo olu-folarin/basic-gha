@@ -127,6 +127,8 @@ jobs:
     - name: Post Dependabot results as a comment
       if: always()
       uses: actions/github-script@v6
+      env:
+        GITHUB_TOKEN: ${{ secrets.PAT_FOR_WORKFLOW }}
       with:
         script: |
           const fs = require('fs');
