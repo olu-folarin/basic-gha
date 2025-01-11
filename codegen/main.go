@@ -27,6 +27,7 @@ const (
     // Service tokens
     GITHUB_TOKEN = "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef"
     GITLAB_TOKEN = "glpat-ABCDEFGHIJKLMNOPQRSTUVWX"
+    SLACK_TOKEN = "xoxb-1234567890-ABCDEFGHIJKLMNOPQRSTUVWX"
     JENKINS_TOKEN = "11ee88c3a7072403d26def2b101f65c084"
     
     // Database connection strings
@@ -259,4 +260,4 @@ func insecureHttpClient() {
     }
     defer resp.Body.Close()
     fmt.Println("Insecure HTTP request made with hardcoded token")
-} 
+}
