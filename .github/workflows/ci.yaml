@@ -51,7 +51,7 @@ jobs:
     - name: Run Gitleaks
       run: |
         echo "Running Gitleaks scan..."
-        docker run --rm -v $GITHUB_WORKSPACE:/workspace zricethezav/gitleaks:latest detect --source /workspace --report-format json --report-path /workspace/gitleaks_results.json || true
+        docker run --rm -v $GITHUB_WORKSPACE:/workspace zricethezav/gitleaks:latest detect --source /workspace --report-format json --report-path /workspace/gitleaks_results.json
     - name: Check Gitleaks results
       run: |
         if [ -s gitleaks_results.json ]; then
@@ -62,7 +62,7 @@ jobs:
       if: always()
       uses: actions/github-script@v6
       with:
-        github-token: ${{ secrets.PAT_FOR_WORKFLOW }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const fs = require('fs');
           let results;
@@ -97,7 +97,7 @@ jobs:
     - name: Scan with Semgrep
       run: |
         echo "Running Semgrep scan..."
-        docker run --rm -v $GITHUB_WORKSPACE:/src returntocorp/semgrep:latest semgrep --config=p/security-audit --config=p/secrets --config=p/ci --json > semgrep_results.json || true
+        docker run --rm -v $GITHUB_WORKSPACE:/src returntocorp/semgrep:latest semgrep --config=auto --config=p/security-audit --config=p/secrets --config=p/ci --json > semgrep_results.json
     - name: Check Semgrep results
       run: |
         if jq -e '.results | length > 0' semgrep_results.json > /dev/null; then
@@ -108,7 +108,7 @@ jobs:
       if: always()
       uses: actions/github-script@v6
       with:
-        github-token: ${{ secrets.PAT_FOR_WORKFLOW }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const fs = require('fs');
           let results;
@@ -143,7 +143,7 @@ jobs:
       uses: actions/checkout@v2
     - name: Fetch Dependabot alerts
       env:
-        GITHUB_TOKEN: ${{ secrets.PAT_FOR_WORKFLOW }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
              -H "Accept: application/vnd.github.v3+json" \
@@ -159,7 +159,7 @@ jobs:
       if: always()
       uses: actions/github-script@v6
       with:
-        github-token: ${{ secrets.PAT_FOR_WORKFLOW }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const fs = require('fs');
           let alerts;
