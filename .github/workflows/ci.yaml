@@ -17,8 +17,10 @@ permissions:
   security-events: write
   issues: write
   pull-requests: write
+  dependabot-alerts: read  # Add this permission
 
 jobs:
+  # Test job remains the same
   test:
     runs-on: ubuntu-latest
     steps:
@@ -35,6 +37,7 @@ jobs:
         go mod tidy
         go test -v ./...
 
+  # Gitleaks job remains the same
   gitleaks:
     runs-on: ubuntu-latest
     steps:
@@ -86,6 +89,7 @@ jobs:
             body: comment
           });
 
+  # Semgrep job remains the same
   semgrep:
     runs-on: ubuntu-latest 
     steps:
@@ -145,6 +149,7 @@ jobs:
             body: comment
           });
 
+  # Updated Dependabot job
   dependabot:
     runs-on: ubuntu-latest
     steps:
@@ -153,16 +158,30 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-          -H "Accept: application/vnd.github.v4.full+json" \
+        # First try to get Dependabot alerts
+        response=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github.v4+json" \
           "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
         
-        echo "$response" > dependabot_alerts.json
-        
-        if echo "$response" | jq -e 'type == "array" and length > 0' > /dev/null; then
-          echo "::warning::Found Dependabot security alerts"
-          echo "SCAN_FAILED=true" >> $GITHUB_ENV
+        # Check if the response contains an error
+        if echo "$response" | jq -e 'has("message")' > /dev/null; then
+          echo "::warning::Error accessing Dependabot alerts: $(echo "$response" | jq -r '.message')"
+          # Create an empty array as fallback
+          echo "[]" > dependabot_alerts.json
+        else
+          echo "$response" > dependabot_alerts.json
+          
+          # Check for actual alerts
+          if echo "$response" | jq -e 'length > 0' > /dev/null; then
+            echo "::warning::Found Dependabot security alerts"
+            echo "SCAN_FAILED=true" >> $GITHUB_ENV
+          fi
         fi
+    - name: Analyze dependencies
+      run: |
+        # Additional dependency analysis using go list
+        cd codegen
+        go list -json -m all > go_modules.json
     - name: Post results
       if: always() 
       uses: actions/github-script@v6
@@ -170,18 +189,26 @@ jobs:
         script: |
           const fs = require('fs');
           let alerts = [];
+          let modules = {};
+          
           try {
             const content = fs.readFileSync('dependabot_alerts.json', 'utf8');
             alerts = JSON.parse(content);
             if (!Array.isArray(alerts)) alerts = [];
-          } catch (error) {}
+            
+            // Read Go modules information
+            const modulesContent = fs.readFileSync('codegen/go_modules.json', 'utf8');
+            modules = JSON.parse(modulesContent);
+          } catch (error) {
+            console.error('Error parsing results:', error);
+          }
           
           const comment = `## Dependabot Security Scan Results
           ${alerts.length ? '⚠️ **Vulnerabilities Found**' : '✅ **No Vulnerabilities Found**'}
           
           ${alerts.map(alert => `
           ### ${alert.security_advisory?.summary || 'Unknown Vulnerability'}
-          - **File**: \`${alert.dependency?.manifest_path || 'Unknown'}\`
+          - **File**: \`${alert.dependency?.manifest_path || 'go.mod'}\`
           - **Package**: ${alert.dependency?.package?.name || 'Unknown'} (version ${alert.dependency?.version || 'Unknown'})
           - **Severity**: ${alert.security_advisory?.severity || 'Unknown'}
           - **CVSS Score**: ${alert.security_advisory?.cvss?.score || 'N/A'}
@@ -192,18 +219,21 @@ jobs:
           
           **Recommendation**:
           ${alert.security_advisory?.references?.[0]?.url ? 
-          `- Review the advisory: ${alert.security_advisory.references[0].url}
-          ` : ''}
+          `- Review the advisory: ${alert.security_advisory.references[0].url}\n` : ''}
           - Update to ${alert.security_advisory?.patched_versions?.[0] || 'the latest version'}
           - Run \`go get -u ${alert.dependency?.package?.name}@latest\`
           
           `).join('\n')}
           
-          ${alerts.length ? '### 📦 Best Practices\n' +
-          '- Regularly update dependencies\n' +
-          '- Review security advisories\n' +
-          '- Use dependency lockfiles\n' +
-          '- Enable automatic security updates' : ''}`;
+          ### 📦 Current Dependencies
+          ${modules.Deps ? `Found ${modules.Deps.length} dependencies\n` : 'No dependency information available'}
+          
+          ### 🛡️ Best Practices
+          - Regularly update dependencies with \`go get -u\` and \`go mod tidy\`
+          - Review security advisories
+          - Use dependency lockfiles
+          - Enable Dependabot security updates
+          - Set up automated dependency updates`;
           
           await github.rest.issues.createComment({
             ...context.repo,
@@ -211,6 +241,7 @@ jobs:
             body: comment
           });
 
+  # Build job remains the same
   build:
     needs: [test, gitleaks, semgrep, dependabot]
     runs-on: ubuntu-latest
