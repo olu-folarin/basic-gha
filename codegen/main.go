@@ -259,4 +259,4 @@ func insecureHttpClient() {
     }
     defer resp.Body.Close()
     fmt.Println("Insecure HTTP request made with hardcoded token")
-}
+} 
