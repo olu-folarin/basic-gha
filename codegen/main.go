@@ -15,7 +15,43 @@ import (
     "strings"
 
     _ "github.com/go-sql-driver/mysql"
-    _ "github.com/lib/pq" // Adding an outdated package for Dependabot to detect
+    _ "github.com/lib/pq"
+)
+
+// Sensitive credentials and tokens for Gitleaks to detect
+const (
+    // AWS credentials
+    AWS_ACCESS_KEY = "AKIA2E0A8F3B28EXAMPLE"
+    AWS_SECRET_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    
+    // Service tokens
+    GITHUB_TOKEN = "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef"
+    GITLAB_TOKEN = "glpat-ABCDEFGHIJKLMNOPQRSTUVWX"
+    SLACK_TOKEN = "xoxb-1234567890-ABCDEFGHIJKLMNOPQRSTUVWX"
+    JENKINS_TOKEN = "11ee88c3a7072403d26def2b101f65c084"
+    
+    // Database connection strings
+    POSTGRES_URI = "postgresql://admin:super_secret_password@localhost:5432/mydb"
+    MYSQL_URI = "mysql://root:another_secret_password@localhost:3306/mydb"
+    MONGODB_URI = "mongodb+srv://admin:mongodb_password_123@cluster0.example.mongodb.net"
+    
+    // API keys and tokens
+    STRIPE_KEY = "sk_live_1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef"
+    TWILIO_TOKEN = "SKxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    MAILGUN_KEY = "key-1234567890abcdefghijklmnopqrstuvwxyz"
+    SENDGRID_KEY = "SG.1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef"
+    
+    // Private keys and certificates
+    SSH_PRIVATE_KEY = `-----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEA7bq98/R10TeyLgH+UHzN8Z1mpRZVV3UE3B8Pj0oEaI+7H6QP
+HSCQQJyNQbT+Abb3jeGRHzntCHGBmqnAD2jiHv/FxNAIxvFZhG5wFPABmOAaVZiX
+3A9KbD0qXykh1oqORAyEGy5qBRkx9poG4HlvhiylbZPsgdhOZj4QICAhQU3ED0nq
+x3W2oMn2ernAHUvTDFJ9taqxT/9dxbgBXVTODHXBz1Xh5AfvHt6TGBqpJOZD/KYV
+LZMeVc5K4HhMXpUxYloDGctmRxGGW4BslLuLsSz7qmEV7m2aBEp+qoIbtcaGQgN1
+e7YgHUXDVQ2OuUj7d1XGYSxxspK4nLbmKX/XkQIDAQABAoIBAQCqOjwGxB9GVmRr
+Bh0gC0VXPOgPJyzM8QXi9kKd3srxEqE5nAmH1wJLbXm7XzJJWtQTG8HDc2aHQ6F1
+0pVjkB/Lv1q+9u1Hy03Vw7LeRJ4VJxlY0HGMz/RPNZzj6jHk7NxB1Bp/5w==
+-----END RSA PRIVATE KEY-----`
 )
 
 func main() {
@@ -37,21 +73,29 @@ func main() {
     md5Hash := md5.Sum(data)
     fmt.Printf("MD5 hash of 'sensitive data': %x\n", md5Hash)
 
-    // Hardcoded credentials
-    username := "admin"
-    password := "password123"
-    fmt.Printf("Username: %s, Password: %s\n", username, password)
+    // More hardcoded credentials for Gitleaks
+    config := map[string]string{
+        "aws_key":    "AKIAIOSFODNN7EXAMPLE",
+        "aws_secret": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+        "api_token":  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        "password":   "super_secret_password_123",
+    }
 
-    // Hardcoded API key (for Gitleaks to detect)
-    apiKey := "12345-abcde-67890-fghij"
-    fmt.Printf("API Key: %s\n", apiKey)
+    // Using the credentials
+    fmt.Printf("Using AWS key: %s\n", config["aws_key"])
 
-    // Hardcoded database credentials
-    dbUser := "dbuser"
-    dbPassword := "dbpassword"
-    dbHost := "localhost"
-    dbName := "dbname"
-    fmt.Printf("Database credentials: %s/%s@%s/%s\n", dbUser, dbPassword, dbHost, dbName)
+    // Database credentials
+    dbConfig := struct {
+        user     string
+        password string
+        host     string
+        database string
+    }{
+        user:     "admin",
+        password: "db_password_456",
+        host:     "production.database.com",
+        database: "customers",
+    }
 
     // SQL Injection vulnerability
     userInput := "'; DROP TABLE users; --"
@@ -65,13 +109,10 @@ func main() {
     }
     fmt.Printf("Insecure random number: %d\n", insecureRandomNumber)
 
-    // Insecure HTTP request
-    resp, err := http.Get("http://example.com")
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer resp.Body.Close()
-    fmt.Println("Insecure HTTP request made to http://example.com")
+    // Insecure HTTP request with hardcoded credentials
+    req, _ := http.NewRequest("GET", "https://api.example.com", nil)
+    req.Header.Set("Authorization", "Bearer "+GITHUB_TOKEN)
+    req.SetBasicAuth("admin", "basic_auth_password")
 
     // Insecure deserialization
     insecureDeserialization()
@@ -87,30 +128,23 @@ func main() {
     userFilePath := "../etc/passwd"
     readFile(userFilePath)
 
-    // Insecure use of environment variables
+    // Additional insecure practices
     insecureEnvVarUsage()
-
-    // Insecure use of exec.Command with user input
     insecureExecCommand(userInput)
-
-    // Insecure use of HTTP client
     insecureHttpClient()
 }
 
-// generateRandomDomain generates a random domain name with either http or https protocol
+// Rest of the functions remain the same as in your original file
 func generateRandomDomain() string {
-    // Define the character set for the domain name
     const charset = "abcdefghijklmnopqrstuvwxyz"
     var domain strings.Builder
 
-    // Generate a random length for the domain name between 5 and 10 characters
     length, err := cryptoRandInt(6)
     if err != nil {
         log.Fatal(err)
     }
     length += 5
 
-    // Build the domain name
     for i := 0; i < length; i++ {
         charIndex, err := cryptoRandInt(len(charset))
         if err != nil {
@@ -119,7 +153,6 @@ func generateRandomDomain() string {
         domain.WriteByte(charset[charIndex])
     }
 
-    // Choose between http and https randomly
     protocol := "http"
     protocolChoice, err := cryptoRandInt(2)
     if err != nil {
@@ -129,20 +162,16 @@ func generateRandomDomain() string {
         protocol = "https"
     }
 
-    // Return the full URL
     return fmt.Sprintf("%s://%s.com", protocol, domain.String())
 }
 
-// executeQuery executes a SQL query
 func executeQuery(query string) {
-    // Open a database connection
     db, err := sql.Open("mysql", "user:password@/dbname")
     if err != nil {
         log.Fatal(err)
     }
     defer db.Close()
 
-    // Execute the query
     _, err = db.Exec(query)
     if err != nil {
         log.Fatal(err)
@@ -150,7 +179,6 @@ func executeQuery(query string) {
     fmt.Println("Query executed:", query)
 }
 
-// cryptoRandInt generates a random integer using crypto/rand
 func cryptoRandInt(max int) (int, error) {
     nBig, err := rand.Int(rand.Reader, big.NewInt(int64(max)))
     if err != nil {
@@ -159,7 +187,6 @@ func cryptoRandInt(max int) (int, error) {
     return int(nBig.Int64()), nil
 }
 
-// insecureDeserialization demonstrates insecure deserialization
 func insecureDeserialization() {
     var data []byte
     var obj interface{}
@@ -171,7 +198,6 @@ func insecureDeserialization() {
     fmt.Println("Insecure deserialization completed")
 }
 
-// executeCommand executes a command with user input
 func executeCommand(command string) {
     cmd := exec.Command(command)
     output, err := cmd.CombinedOutput()
@@ -181,7 +207,6 @@ func executeCommand(command string) {
     fmt.Printf("Command output: %s\n", output)
 }
 
-// createInsecureFile creates a file with insecure permissions
 func createInsecureFile(filePath string) {
     file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY, 0666)
     if err != nil {
@@ -191,7 +216,6 @@ func createInsecureFile(filePath string) {
     fmt.Println("Insecure file created:", filePath)
 }
 
-// readFile reads a file specified by user input
 func readFile(filePath string) {
     data, err := os.ReadFile(filePath)
     if err != nil {
@@ -200,7 +224,6 @@ func readFile(filePath string) {
     fmt.Printf("File content: %s\n", data)
 }
 
-// getEnv retrieves environment variables with a fallback default value
 func getEnv(key, fallback string) string {
     value := os.Getenv(key)
     if value == "" {
@@ -209,15 +232,12 @@ func getEnv(key, fallback string) string {
     return value
 }
 
-// insecureEnvVarUsage demonstrates insecure use of environment variables
 func insecureEnvVarUsage() {
-    // Hardcoded environment variable
     os.Setenv("SECRET_KEY", "hardcoded_secret_key")
     secretKey := os.Getenv("SECRET_KEY")
     fmt.Printf("Secret Key: %s\n", secretKey)
 }
 
-// insecureExecCommand demonstrates insecure use of exec.Command with user input
 func insecureExecCommand(userInput string) {
     cmd := exec.Command("sh", "-c", userInput)
     output, err := cmd.CombinedOutput()
@@ -227,7 +247,6 @@ func insecureExecCommand(userInput string) {
     fmt.Printf("Command output: %s\n", output)
 }
 
-// insecureHttpClient demonstrates insecure use of HTTP client
 func insecureHttpClient() {
     client := &http.Client{}
     req, err := http.NewRequest("GET", "http://example.com", nil)
