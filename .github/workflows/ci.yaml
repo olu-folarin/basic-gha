@@ -48,7 +48,6 @@ jobs:
         
         if [ -s gitleaks_results.json ]; then
           echo "::warning::Gitleaks found potential secrets"
-          cat gitleaks_results.json
           echo "SCAN_FAILED=true" >> $GITHUB_ENV
         fi
     - name: Post results
@@ -62,12 +61,24 @@ jobs:
             results = JSON.parse(fs.readFileSync('gitleaks_results.json', 'utf8'));
           } catch (error) {} 
           
-          const comment = `## Gitleaks Scan Results
+          const comment = `## Gitleaks Security Scan Results
           ${results.length ? '⚠️ **Secrets Found**' : '✅ **No Secrets Found**'}
           
-          ${results.map(r => (
-            `- **${r.Rule}** in \`${r.File}\` (line ${r.StartLine})`
-          )).join('\n')}`;
+          ${results.map(r => `
+          ### Secret detected in \`${r.File}\`
+          - **Location**: Line ${r.StartLine}
+          - **Rule Violated**: ${r.Rule}
+          - **Description**: ${r.Description || 'Potential secret or credential found'}
+          - **Recommendation**: Remove the secret and store it securely in environment variables or a secrets manager
+          - **Matched Content**: \`${r.Match}\`
+          
+          `).join('\n')}
+          
+          ${results.length ? '### 🔒 Best Practices\n' +
+          '- Never commit secrets, credentials or sensitive data\n' +
+          '- Use environment variables or secret management tools\n' +
+          '- Add sensitive patterns to .gitignore\n' +
+          '- Consider using pre-commit hooks to prevent secret commits' : ''}`;
           
           await github.rest.issues.createComment({
             ...context.repo,
@@ -103,15 +114,30 @@ jobs:
             results = JSON.parse(fs.readFileSync('semgrep_results.json', 'utf8'));
           } catch (error) {}
           
-          const comment = `## Semgrep Scan Results
+          const comment = `## Semgrep Security Scan Results
           ${results.results.length ? '⚠️ **Security Issues Found**' : '✅ **No Security Issues Found**'}
           
-          ${results.results.map(r => (
-            `### ${r.check_id}
-            - File: \`${r.path}\`
-            - Line: ${r.start.line}
-            - ${r.extra.message}`
-          )).join('\n\n')}`;
+          ${results.results.map(r => `
+          ### ${r.check_id}
+          - **File**: \`${r.path}\`
+          - **Line**: ${r.start.line}
+          - **Issue**: ${r.extra.message}
+          - **Impact**: ${r.extra.metadata?.impact || 'Potential security vulnerability'}
+          - **Confidence**: ${r.extra.metadata?.confidence || 'Unknown'}
+          
+          **Description**:
+          ${r.extra.metadata?.description || r.extra.message}
+          
+          **Recommendation**:
+          ${r.extra.metadata?.fix || 'Review and fix the identified security issue according to best practices'}
+          
+          `).join('\n')}
+          
+          ${results.results.length ? '### 🛡️ Best Practices\n' +
+          '- Follow secure coding guidelines\n' +
+          '- Implement proper input validation\n' +
+          '- Use security-focused code reviews\n' +
+          '- Keep security dependencies updated' : ''}`;
           
           await github.rest.issues.createComment({
             ...context.repo,
@@ -150,16 +176,34 @@ jobs:
             if (!Array.isArray(alerts)) alerts = [];
           } catch (error) {}
           
-          const comment = `## Dependabot Security Scan
+          const comment = `## Dependabot Security Scan Results
           ${alerts.length ? '⚠️ **Vulnerabilities Found**' : '✅ **No Vulnerabilities Found**'}
           
-          ${alerts.map(alert => (
-            `### ${alert.security_advisory?.summary || 'Unknown Issue'}
-            - Severity: ${alert.security_advisory?.severity || 'Unknown'}
-            - Package: ${alert.dependency?.package?.name || 'Unknown'}
-            - Version: ${alert.dependency?.version || 'Unknown'}
-            - Path: ${alert.dependency?.manifest_path || 'Unknown'}`
-          )).join('\n\n')}`;
+          ${alerts.map(alert => `
+          ### ${alert.security_advisory?.summary || 'Unknown Vulnerability'}
+          - **File**: \`${alert.dependency?.manifest_path || 'Unknown'}\`
+          - **Package**: ${alert.dependency?.package?.name || 'Unknown'} (version ${alert.dependency?.version || 'Unknown'})
+          - **Severity**: ${alert.security_advisory?.severity || 'Unknown'}
+          - **CVSS Score**: ${alert.security_advisory?.cvss?.score || 'N/A'}
+          - **Vulnerable Requirements**: ${alert.security_advisory?.vulnerableVersionRange || 'Unknown'}
+          
+          **Description**:
+          ${alert.security_advisory?.description || 'No description available'}
+          
+          **Recommendation**:
+          ${alert.security_advisory?.references?.[0]?.url ? 
+          `- Review the advisory: ${alert.security_advisory.references[0].url}
+          ` : ''}
+          - Update to ${alert.security_advisory?.patched_versions?.[0] || 'the latest version'}
+          - Run \`go get -u ${alert.dependency?.package?.name}@latest\`
+          
+          `).join('\n')}
+          
+          ${alerts.length ? '### 📦 Best Practices\n' +
+          '- Regularly update dependencies\n' +
+          '- Review security advisories\n' +
+          '- Use dependency lockfiles\n' +
+          '- Enable automatic security updates' : ''}`;
           
           await github.rest.issues.createComment({
             ...context.repo,
