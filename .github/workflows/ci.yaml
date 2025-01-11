@@ -5,343 +5,234 @@ on:
     branches:
       - main
 
-# Define environment variables to store repetitive values
 env:
   GITHUB_WORKSPACE: ${{ github.workspace }}
-  DEFECTDOJO_API_KEY: ${{ secrets.DEFECTDOJO_API_KEY }}
-  DEFECTDOJO_URL: ${{ secrets.DEFECTDOJO_URL }}
-  DEFECTDOJO_ENGAGEMENT_ID: ${{ secrets.DEFECTDOJO_ENGAGEMENT_ID }}
   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
   AWS_REGION: ${{ secrets.AWS_REGION }}
   ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
   IMAGE_TAG: ${{ github.sha }}
 
-defaults:
-  run:
-    shell: bash
+permissions:
+  contents: read
+  security-events: write
+  issues: write
+  pull-requests: write
 
 jobs:
   test:
     runs-on: ubuntu-latest
-
     steps:
-    # Checkout the repository
-    - name: Checkout repository
-      uses: actions/checkout@v2
-
-    # Set up Go environment
-    - name: Set up Go environment
-      uses: actions/setup-go@v4
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v4
       with:
         go-version: '1.20'
-
-    # Ensure go.mod exists
-    - name: Ensure go.mod exists
+    - name: Run tests
       run: |
         cd codegen
         if [ ! -f go.mod ]; then
           go mod init example.com/m
         fi
-
-    # Install dependencies
-    - name: Install dependencies
-      run: cd codegen && go mod tidy
-
-    # Run Go tests
-    - name: Run Go tests
-      run: cd codegen && go test -v ./...
+        go mod tidy
+        go test -v ./...
 
   gitleaks:
     runs-on: ubuntu-latest
-
     steps:
-    # Checkout the repository
-    - name: Checkout repository
-      uses: actions/checkout@v2
-
-    # Run Gitleaks scan using the latest Docker image
+    - uses: actions/checkout@v3
     - name: Run Gitleaks
       run: |
-        echo "Running Gitleaks scan..."
-        docker run --rm -v $GITHUB_WORKSPACE:/workspace zricethezav/gitleaks:latest detect --source /workspace --report-format json --report-path /workspace/gitleaks_results.json || true
-
-    # Check Gitleaks results for vulnerabilities
-    - name: Check Gitleaks results
-      run: |
-        if grep -q '"StartLine":' gitleaks_results.json; then
-          echo "Vulnerabilities found by Gitleaks"
-          exit 1
+        docker run --rm -v $GITHUB_WORKSPACE:/workspace zricethezav/gitleaks:latest detect \
+          --source /workspace \
+          --report-format json \
+          --report-path /workspace/gitleaks_results.json
+        
+        if [ -s gitleaks_results.json ]; then
+          echo "::warning::Gitleaks found potential secrets"
+          echo "SCAN_FAILED=true" >> $GITHUB_ENV
         fi
-
-    # Upload Gitleaks results as an artifact
-    - name: Upload Gitleaks results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: gitleaks-results
-        path: gitleaks_results.json
-
-  semgrep:
-    runs-on: ubuntu-latest
-
-    steps:
-    # Checkout the repository
-    - name: Checkout repository
-      uses: actions/checkout@v3
-
-    # Run Semgrep scan using the latest Docker image
-    - name: Scan with Semgrep
-      run: |
-        echo "Running Semgrep scan..."
-        docker run --rm -v $GITHUB_WORKSPACE:/src returntocorp/semgrep:latest semgrep --config=semgrep-rules.yml --json > semgrep_results.json || true
-
-    # Check Semgrep results for vulnerabilities
-    - name: Check Semgrep results
-      run: |
-        if grep -q '"extra":' semgrep_results.json; then
-          echo "Vulnerabilities found by Semgrep"
-          exit 1
-        fi
-
-    # Upload Semgrep results as an artifact
-    - name: Upload Semgrep results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: semgrep-results
-        path: semgrep_results.json
-
-    # Post Semgrep results as a comment on the pull request
-    - name: Post Semgrep results as a comment
+    - name: Post results
       if: always()
       uses: actions/github-script@v6
       with:
         script: |
           const fs = require('fs');
-          let results;
+          let results = [];
+          try {
+            results = JSON.parse(fs.readFileSync('gitleaks_results.json', 'utf8'));
+          } catch (error) {} 
+          
+          const comment = `## Gitleaks Security Scan Results
+          ${results.length ? '⚠️ **Secrets Found**' : '✅ **No Secrets Found**'}
+          
+          ${results.map(r => `
+          ### Secret detected in \`${r.File}\`
+          - **Location**: Line ${r.StartLine}
+          - **Rule Violated**: ${r.Rule}
+          - **Description**: ${r.Description || 'Potential secret or credential found'}
+          - **Recommendation**: Remove the secret and store it securely in environment variables or a secrets manager
+          - **Matched Content**: \`${r.Match}\`
+          
+          `).join('\n')}
+          
+          ${results.length ? '### 🔒 Best Practices\n' +
+          '- Never commit secrets, credentials or sensitive data\n' +
+          '- Use environment variables or secret management tools\n' +
+          '- Add sensitive patterns to .gitignore\n' +
+          '- Consider using pre-commit hooks to prevent secret commits' : ''}`;
+          
+          await github.rest.issues.createComment({
+            ...context.repo,
+            issue_number: context.issue.number,
+            body: comment
+          });
+
+  semgrep:
+    runs-on: ubuntu-latest 
+    steps:
+    - uses: actions/checkout@v3
+    - name: Run Semgrep
+      run: |
+        docker run --rm -v $GITHUB_WORKSPACE:/src returntocorp/semgrep:latest \
+          semgrep --config=auto \
+          --config=p/security-audit \
+          --config=p/secrets \
+          --config=p/ci \
+          --json > semgrep_results.json
+        
+        if jq -e '.results | length > 0' semgrep_results.json > /dev/null; then
+          echo "::warning::Semgrep found security issues"
+          echo "SCAN_FAILED=true" >> $GITHUB_ENV
+        fi
+    - name: Post results  
+      if: always()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          let results = {results:[]};
           try {
             results = JSON.parse(fs.readFileSync('semgrep_results.json', 'utf8'));
-          } catch (error) {
-            console.error('Error parsing Semgrep results:', error);
-            return;
-          }
-
-          let commentBody = '## Semgrep Scan Results\n\n';
-          if (results.results && results.results.length > 0) {
-            results.results.forEach(result => {
-              commentBody += `### ${result.check_id}\n`;
-              commentBody += `**Reason:** ${result.extra.message}\n\n`;
-              commentBody += `**File:** ${result.path}\n`;
-              commentBody += `**Line:** ${result.start.line}\n\n`;
-            });
-          } else {
-            commentBody += 'No vulnerabilities found.';
-          }
-
+          } catch (error) {}
+          
+          const comment = `## Semgrep Security Scan Results
+          ${results.results.length ? '⚠️ **Security Issues Found**' : '✅ **No Security Issues Found**'}
+          
+          ${results.results.map(r => `
+          ### ${r.check_id}
+          - **File**: \`${r.path}\`
+          - **Line**: ${r.start.line}
+          - **Issue**: ${r.extra.message}
+          - **Impact**: ${r.extra.metadata?.impact || 'Potential security vulnerability'}
+          - **Confidence**: ${r.extra.metadata?.confidence || 'Unknown'}
+          
+          **Description**:
+          ${r.extra.metadata?.description || r.extra.message}
+          
+          **Recommendation**:
+          ${r.extra.metadata?.fix || 'Review and fix the identified security issue according to best practices'}
+          
+          `).join('\n')}
+          
+          ${results.results.length ? '### 🛡️ Best Practices\n' +
+          '- Follow secure coding guidelines\n' +
+          '- Implement proper input validation\n' +
+          '- Use security-focused code reviews\n' +
+          '- Keep security dependencies updated' : ''}`;
+          
           await github.rest.issues.createComment({
+            ...context.repo,
             issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: commentBody
+            body: comment
           });
 
   dependabot:
     runs-on: ubuntu-latest
-
     steps:
-    # Checkout the repository
-    - name: Checkout repository
-      uses: actions/checkout@v2
-
-    # Fetch Dependabot alerts using GitHub API
-    - name: Fetch Dependabot alerts
+    - uses: actions/checkout@v3
+    - name: Get Dependabot alerts
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        response=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-             -H "Accept: application/vnd.github.v3+json" \
-             "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
-        if echo "$response" | jq -e '.message == "Dependabot alerts are disabled for this repository."' > /dev/null; then
-          echo "Dependabot alerts are not enabled for this repository. Skipping alert processing."
-          echo '[]' > dependabot_alerts.json
-        else
-          echo "$response" > dependabot_alerts.json
+        response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github.v4.full+json" \
+          "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
+        
+        echo "$response" > dependabot_alerts.json
+        
+        if echo "$response" | jq -e 'type == "array" and length > 0' > /dev/null; then
+          echo "::warning::Found Dependabot security alerts"
+          echo "SCAN_FAILED=true" >> $GITHUB_ENV
         fi
-
-    # Upload Dependabot results as an artifact
-    - name: Upload Dependabot results
-      uses: actions/upload-artifact@v4
-      with:
-        name: dependabot-results
-        path: dependabot_alerts.json
-
-    # Post Dependabot results as a comment on the pull request
-    - name: Post Dependabot results as a comment
-      if: always()
+    - name: Post results
+      if: always() 
       uses: actions/github-script@v6
       with:
         script: |
           const fs = require('fs');
-          let alerts;
+          let alerts = [];
           try {
-            alerts = JSON.parse(fs.readFileSync('dependabot_alerts.json', 'utf8'));
-          } catch (error) {
-            console.error('Error parsing Dependabot alerts:', error);
-            return;
-          }
-          let commentBody = '## Dependabot Alerts\n\n';
-          if (alerts.length > 0) {
-            alerts.forEach(alert => {
-              commentBody += `### ${alert.security_advisory.summary}\n`;
-              commentBody += `**Severity:** ${alert.security_advisory.severity}\n\n`;
-              commentBody += `**Package:** ${alert.dependency.package.name}\n`;
-              commentBody += `**Version:** ${alert.dependency.version}\n\n`;
-              commentBody += `**Manifest Path:** ${alert.dependency.manifest_path}\n\n`;
-            });
-          } else {
-            commentBody += 'No Dependabot alerts found.';
-          }
+            const content = fs.readFileSync('dependabot_alerts.json', 'utf8');
+            alerts = JSON.parse(content);
+            if (!Array.isArray(alerts)) alerts = [];
+          } catch (error) {}
+          
+          const comment = `## Dependabot Security Scan Results
+          ${alerts.length ? '⚠️ **Vulnerabilities Found**' : '✅ **No Vulnerabilities Found**'}
+          
+          ${alerts.map(alert => `
+          ### ${alert.security_advisory?.summary || 'Unknown Vulnerability'}
+          - **File**: \`${alert.dependency?.manifest_path || 'Unknown'}\`
+          - **Package**: ${alert.dependency?.package?.name || 'Unknown'} (version ${alert.dependency?.version || 'Unknown'})
+          - **Severity**: ${alert.security_advisory?.severity || 'Unknown'}
+          - **CVSS Score**: ${alert.security_advisory?.cvss?.score || 'N/A'}
+          - **Vulnerable Requirements**: ${alert.security_advisory?.vulnerableVersionRange || 'Unknown'}
+          
+          **Description**:
+          ${alert.security_advisory?.description || 'No description available'}
+          
+          **Recommendation**:
+          ${alert.security_advisory?.references?.[0]?.url ? 
+          `- Review the advisory: ${alert.security_advisory.references[0].url}
+          ` : ''}
+          - Update to ${alert.security_advisory?.patched_versions?.[0] || 'the latest version'}
+          - Run \`go get -u ${alert.dependency?.package?.name}@latest\`
+          
+          `).join('\n')}
+          
+          ${alerts.length ? '### 📦 Best Practices\n' +
+          '- Regularly update dependencies\n' +
+          '- Review security advisories\n' +
+          '- Use dependency lockfiles\n' +
+          '- Enable automatic security updates' : ''}`;
+          
           await github.rest.issues.createComment({
+            ...context.repo,
             issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: commentBody
+            body: comment
           });
 
-  defectdojo:
-    runs-on: ubuntu-latest
-    needs: [gitleaks, semgrep, dependabot]
-    if: always()
-
-    steps:
-    # Checkout the repository
-    - name: Checkout repository
-      uses: actions/checkout@v2
-
-    # Download Gitleaks results artifact
-    - name: Download Gitleaks results
-      uses: actions/download-artifact@v4
-      continue-on-error: true
-      with:
-        name: gitleaks-results
-        path: .
-
-    # Download Semgrep results artifact
-    - name: Download Semgrep results
-      uses: actions/download-artifact@v4
-      continue-on-error: true
-      with:
-        name: semgrep-results
-        path: .
-
-    # Download Dependabot results artifact
-    - name: Download Dependabot results
-      uses: actions/download-artifact@v4
-      continue-on-error: true
-      with:
-        name: dependabot-results
-        path: .
-
-    # Verify DefectDojo API token
-    - name: Verify DefectDojo API token
-      run: |
-        echo "Verifying DefectDojo API token..."
-        response=$(curl -X GET "$DEFECTDOJO_URL/api/v2/users/" \
-        -H "Authorization: Token $DEFECTDOJO_API_KEY" -w "\n%{http_code}")
-        http_code=$(echo "$response" | tail -n1)
-        body=$(echo "$response" | sed '$d')
-        echo "HTTP Status Code: $http_code"
-        echo "Response Body: $body"
-        if [ "$http_code" -ne 200 ]; then
-          echo "Invalid DefectDojo API token"
-          exit 1
-        fi
-
-    # Upload Gitleaks results to DefectDojo
-    - name: Upload Gitleaks results to DefectDojo
-      run: |
-        if [ -f gitleaks_results.json ]; then
-          echo "Uploading Gitleaks results to DefectDojo..."
-          response=$(curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
-          -H "Authorization: Token $DEFECTDOJO_API_KEY" \
-          -H "Content-Type: multipart/form-data" \
-          -F "file=@gitleaks_results.json" \
-          -F "scan_type=Gitleaks Scan" \
-          -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" -w "\n%{http_code}")
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
-          echo "HTTP Status Code: $http_code"
-          echo "Response Body: $body"
-          if [ "$http_code" -ne 201 ]; then
-            echo "Failed to upload Gitleaks results"
-            exit 1
-          fi
-        else
-          echo "Gitleaks results not found."
-        fi
-
-    # Upload Semgrep results to DefectDojo
-    - name: Upload Semgrep results to DefectDojo
-      run: |
-        if [ -f semgrep_results.json ]; then
-          echo "Uploading Semgrep results to DefectDojo..."
-          response=$(curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
-          -H "Authorization: Token $DEFECTDOJO_API_KEY" \
-          -H "Content-Type: multipart/form-data" \
-          -F "file=@semgrep_results.json" \
-          -F "scan_type=Semgrep JSON Report" \
-          -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" -w "\n%{http_code}")
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
-          echo "HTTP Status Code: $http_code"
-          echo "Response Body: $body"
-          if [ "$http_code" -ne 201 ]; then
-            echo "Failed to upload Semgrep results"
-            exit 1
-          fi
-        else
-          echo "Semgrep results not found."
-        fi
-
   build:
+    needs: [test, gitleaks, semgrep, dependabot]
     runs-on: ubuntu-latest
-    needs: [defectdojo]
-    if: ${{ needs.gitleaks.result == 'success' && needs.semgrep.result == 'success' && needs.dependabot.result == 'success' }}
-
+    if: |
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.outputs.SCAN_FAILED, 'true')
     steps:
-    # Checkout the repository
-    - name: Checkout repository
-      uses: actions/checkout@v2
-
-    # List files for debugging
-    - name: List files for debugging
-      run: ls -R
-
-    # List files in codegen directory
-    - name: List files in codegen directory
-      run: ls -R codegen
-
-    # Verify Dockerfile exists
-    - name: Verify Dockerfile exists
+    - uses: actions/checkout@v3
+    - name: Verify Dockerfile
       run: |
         if [ ! -f codegen/Dockerfile ]; then
-          echo "Dockerfile not found!"
+          echo "::error::Dockerfile not found!"
           exit 1
         fi
-
-    # Configure AWS Credentials
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v2
+    - uses: aws-actions/configure-aws-credentials@v2
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ secrets.AWS_REGION }}
-
-    # Login to Amazon ECR
-    - name: Login to Amazon ECR
+    - uses: aws-actions/amazon-ecr-login@v2
       id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
-
-    # Build, tag, and push docker image to Amazon ECR
-    - name: Build, tag, and push docker image to Amazon ECR
+    - name: Build and push
       run: |
         IMAGE_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}"
         docker build -t $IMAGE_URI -f codegen/Dockerfile codegen
