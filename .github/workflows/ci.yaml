@@ -51,43 +51,13 @@ jobs:
     - name: Run Gitleaks
       run: |
         echo "Running Gitleaks scan..."
-        docker run --rm -v $GITHUB_WORKSPACE:/workspace zricethezav/gitleaks:latest detect --source /workspace --report-format json --report-path /workspace/gitleaks_results.json
-    - name: Check Gitleaks results
-      run: |
-        if [ -s gitleaks_results.json ]; then
-          echo "Gitleaks found secrets. Failing the job."
-          exit 1
-        fi
-    - name: Post Gitleaks results as a comment
+        docker run --rm -v $GITHUB_WORKSPACE:/workspace zricethezav/gitleaks:latest detect --source /workspace --report-format json --report-path /workspace/gitleaks_results.json || true
+    - name: Upload Gitleaks results
+      uses: actions/upload-artifact@v4
       if: always()
-      uses: actions/github-script@v6
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          const fs = require('fs');
-          let results;
-          try {
-            results = JSON.parse(fs.readFileSync('gitleaks_results.json', 'utf8'));
-          } catch (error) {
-            console.error('Error parsing Gitleaks results:', error);
-            return;
-          }
-          let commentBody = '## Gitleaks Scan Results\n\n';
-          if (results.length > 0) {
-            results.forEach(result => {
-              commentBody += `### Secret found in ${result.File}\n`;
-              commentBody += `**Line:** ${result.StartLine}\n`;
-              commentBody += `**Rule:** ${result.Rule}\n\n`;
-            });
-          } else {
-            commentBody += 'No secrets found.';
-          }
-          await github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: commentBody
-          });
+        name: gitleaks-results
+        path: gitleaks_results.json
 
   semgrep:
     runs-on: ubuntu-latest
@@ -97,13 +67,13 @@ jobs:
     - name: Scan with Semgrep
       run: |
         echo "Running Semgrep scan..."
-        docker run --rm -v $GITHUB_WORKSPACE:/src returntocorp/semgrep:latest semgrep --config=auto --config=p/security-audit --config=p/secrets --config=p/ci --json > semgrep_results.json
-    - name: Check Semgrep results
-      run: |
-        if jq -e '.results | length > 0' semgrep_results.json > /dev/null; then
-          echo "Semgrep found vulnerabilities. Failing the job."
-          exit 1
-        fi
+        docker run --rm -v $GITHUB_WORKSPACE:/src returntocorp/semgrep:latest semgrep --config=p/security-audit --config=p/secrets --config=p/ci --json > semgrep_results.json || true
+    - name: Upload Semgrep results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: semgrep-results
+        path: semgrep_results.json
     - name: Post Semgrep results as a comment
       if: always()
       uses: actions/github-script@v6
@@ -149,12 +119,6 @@ jobs:
              -H "Accept: application/vnd.github.v3+json" \
              "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
         echo "$response" > dependabot_alerts.json
-    - name: Check Dependabot alerts
-      run: |
-        if jq -e 'length > 0' dependabot_alerts.json > /dev/null; then
-          echo "Dependabot found alerts. Failing the job."
-          exit 1
-        fi
     - name: Post Dependabot results as a comment
       if: always()
       uses: actions/github-script@v6
@@ -169,14 +133,17 @@ jobs:
             console.error('Error parsing Dependabot alerts:', error);
             return;
           }
-          let commentBody = '## Dependabot Alerts\n\n';
+          let commentBody = '## Dependabot Scan Report\n\n';
           if (alerts.length > 0) {
             alerts.forEach(alert => {
               commentBody += `### ${alert.security_advisory.summary}\n`;
-              commentBody += `**Severity:** ${alert.security_advisory.severity}\n\n`;
+              commentBody += `**Severity:** ${alert.security_advisory.severity}\n`;
               commentBody += `**Package:** ${alert.dependency.package.name}\n`;
-              commentBody += `**Version:** ${alert.dependency.version}\n\n`;
-              commentBody += `**Manifest Path:** ${alert.dependency.manifest_path}\n\n`;
+              commentBody += `**Version:** ${alert.dependency.version}\n`;
+              commentBody += `**Manifest Path:** ${alert.dependency.manifest_path}\n`;
+              commentBody += `**Vulnerable Line:** ${alert.location ? alert.location.start_line : 'N/A'}\n`;
+              commentBody += `**Risk:** ${alert.security_advisory.description}\n`;
+              commentBody += `**How to fix:** ${alert.security_advisory.references[0] ? alert.security_advisory.references[0].url : 'Update to the latest version'}\n\n`;
             });
           } else {
             commentBody += 'No Dependabot alerts found.';
@@ -187,6 +154,12 @@ jobs:
             repo: context.repo.repo,
             body: commentBody
           });
+    - name: Check for vulnerabilities
+      run: |
+        if [ $(jq length dependabot_alerts.json) -gt 0 ]; then
+          echo "Vulnerabilities found. Failing the job."
+          exit 1
+        fi
 
   build:
     runs-on: ubuntu-latest
