@@ -7,9 +7,6 @@ on:
 
 env:
   GITHUB_WORKSPACE: ${{ github.workspace }}
-  DEFECTDOJO_API_KEY: ${{ secrets.DEFECTDOJO_API_KEY }}
-  DEFECTDOJO_URL: ${{ secrets.DEFECTDOJO_URL }}
-  DEFECTDOJO_ENGAGEMENT_ID: ${{ secrets.DEFECTDOJO_ENGAGEMENT_ID }}
   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
   AWS_REGION: ${{ secrets.AWS_REGION }}
   ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
@@ -18,8 +15,6 @@ env:
 permissions:
   contents: read
   security-events: read
-  issues: write
-  pull-requests: write
 
 defaults:
   run:
@@ -61,6 +56,38 @@ jobs:
       with:
         name: gitleaks-results
         path: gitleaks_results.json
+    - name: Post Gitleaks results as a comment
+      if: always()
+      uses: actions/github-script@v6
+      env:
+        GITHUB_TOKEN: ${{ secrets.PAT_FOR_WORKFLOW }}
+      with:
+        script: |
+          const fs = require('fs');
+          let results;
+          try {
+            results = JSON.parse(fs.readFileSync('gitleaks_results.json', 'utf8'));
+          } catch (error) {
+            console.error('Error parsing Gitleaks results:', error);
+            return;
+          }
+          let commentBody = '## Gitleaks Scan Results\n\n';
+          if (results.length > 0) {
+            results.forEach(result => {
+              commentBody += `### ${result.rule}\n`;
+              commentBody += `**Description:** ${result.description}\n\n`;
+              commentBody += `**File:** ${result.file}\n`;
+              commentBody += `**Line:** ${result.line}\n\n`;
+            });
+          } else {
+            commentBody += 'No vulnerabilities found.';
+          }
+          await github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: commentBody
+          });
 
   semgrep:
     runs-on: ubuntu-latest
@@ -80,8 +107,9 @@ jobs:
     - name: Post Semgrep results as a comment
       if: always()
       uses: actions/github-script@v6
+      env:
+        GITHUB_TOKEN: ${{ secrets.PAT_FOR_WORKFLOW }}
       with:
-        github-token: ${{ secrets.PAT_FOR_WORKFLOW }}
         script: |
           const fs = require('fs');
           let results;
@@ -130,8 +158,9 @@ jobs:
     - name: Post Dependabot results as a comment
       if: always()
       uses: actions/github-script@v6
+      env:
+        GITHUB_TOKEN: ${{ secrets.PAT_FOR_WORKFLOW }}
       with:
-        github-token: ${{ secrets.PAT_FOR_WORKFLOW }}
         script: |
           const fs = require('fs');
           let alerts;
@@ -160,111 +189,9 @@ jobs:
             body: commentBody
           });
 
-  defectdojo:
-    runs-on: ubuntu-latest
-    needs: [gitleaks, semgrep, dependabot]
-    if: always()
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
-    - name: Download Gitleaks results
-      uses: actions/download-artifact@v4
-      continue-on-error: true
-      with:
-        name: gitleaks-results
-        path: .
-    - name: Download Semgrep results
-      uses: actions/download-artifact@v4
-      continue-on-error: true
-      with:
-        name: semgrep-results
-        path: .
-    - name: Download Dependabot results
-      uses: actions/download-artifact@v4
-      continue-on-error: true
-      with:
-        name: dependabot-results
-        path: .
-    - name: Verify DefectDojo API token
-      run: |
-        echo "Verifying DefectDojo API token..."
-        response=$(curl -X GET "$DEFECTDOJO_URL/api/v2/users/" \
-        -H "Authorization: Token $DEFECTDOJO_API_KEY" -w "\n%{http_code}")
-        http_code=$(echo "$response" | tail -n1)
-        body=$(echo "$response" | sed '$d')
-        echo "HTTP Status Code: $http_code"
-        echo "Response Body: $body"
-        if [ "$http_code" -ne 200 ]; then
-          echo "Invalid DefectDojo API token"
-          exit 1
-        fi
-    - name: Upload Gitleaks results to DefectDojo
-      run: |
-        if [ -f gitleaks_results.json ]; then
-          echo "Uploading Gitleaks results to DefectDojo..."
-          response=$(curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
-          -H "Authorization: Token $DEFECTDOJO_API_KEY" \
-          -H "Content-Type: multipart/form-data" \
-          -F "file=@gitleaks_results.json" \
-          -F "scan_type=Gitleaks Scan" \
-          -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" -w "\n%{http_code}")
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
-          echo "HTTP Status Code: $http_code"
-          echo "Response Body: $body"
-          if [ "$http_code" -ne 201 ]; then
-            echo "Failed to upload Gitleaks results"
-            exit 1
-          fi
-        else
-          echo "Gitleaks results not found."
-        fi
-    - name: Upload Semgrep results to DefectDojo
-      run: |
-        if [ -f semgrep_results.json ]; then
-          echo "Uploading Semgrep results to DefectDojo..."
-          response=$(curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
-          -H "Authorization: Token $DEFECTDOJO_API_KEY" \
-          -H "Content-Type: multipart/form-data" \
-          -F "file=@semgrep_results.json" \
-          -F "scan_type=Semgrep JSON Report" \
-          -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" -w "\n%{http_code}")
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
-          echo "HTTP Status Code: $http_code"
-          echo "Response Body: $body"
-          if [ "$http_code" -ne 201 ]; then
-            echo "Failed to upload Semgrep results"
-            exit 1
-          fi
-        else
-          echo "Semgrep results not found."
-        fi
-    - name: Upload Dependabot results to DefectDojo
-      run: |
-        if [ -f dependabot_alerts.json ]; then
-          echo "Uploading Dependabot results to DefectDojo..."
-          response=$(curl -X POST "$DEFECTDOJO_URL/api/v2/import-scan/" \
-          -H "Authorization: Token $DEFECTDOJO_API_KEY" \
-          -H "Content-Type: multipart/form-data" \
-          -F "file=@dependabot_alerts.json" \
-          -F "scan_type=Dependency Scan" \
-          -F "engagement=$DEFECTDOJO_ENGAGEMENT_ID" -w "\n%{http_code}")
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
-          echo "HTTP Status Code: $http_code"
-          echo "Response Body: $body"
-          if [ "$http_code" -ne 201 ]; then
-            echo "Failed to upload Dependabot results"
-            exit 1
-          fi
-        else
-          echo "Dependabot results not found."
-        fi
-
   build:
     runs-on: ubuntu-latest
-    needs: [defectdojo]
+    needs: [gitleaks, semgrep, dependabot]
     if: ${{ needs.gitleaks.result == 'success' && needs.semgrep.result == 'success' && needs.dependabot.result == 'success' }}
     steps:
     - name: Checkout repository
