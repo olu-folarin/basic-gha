@@ -52,6 +52,12 @@ jobs:
       run: |
         echo "Running Gitleaks scan..."
         docker run --rm -v $GITHUB_WORKSPACE:/workspace zricethezav/gitleaks:latest detect --source /workspace --report-format json --report-path /workspace/gitleaks_results.json || true
+    - name: Check Gitleaks results
+      run: |
+        if [ -s gitleaks_results.json ]; then
+          echo "Gitleaks found secrets. Failing the job."
+          exit 1
+        fi
     - name: Post Gitleaks results as a comment
       if: always()
       uses: actions/github-script@v6
@@ -92,6 +98,12 @@ jobs:
       run: |
         echo "Running Semgrep scan..."
         docker run --rm -v $GITHUB_WORKSPACE:/src returntocorp/semgrep:latest semgrep --config=p/security-audit --config=p/secrets --config=p/ci --json > semgrep_results.json || true
+    - name: Check Semgrep results
+      run: |
+        if jq -e '.results | length > 0' semgrep_results.json > /dev/null; then
+          echo "Semgrep found vulnerabilities. Failing the job."
+          exit 1
+        fi
     - name: Post Semgrep results as a comment
       if: always()
       uses: actions/github-script@v6
@@ -137,6 +149,12 @@ jobs:
              -H "Accept: application/vnd.github.v3+json" \
              "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
         echo "$response" > dependabot_alerts.json
+    - name: Check Dependabot alerts
+      run: |
+        if jq -e 'length > 0' dependabot_alerts.json > /dev/null; then
+          echo "Dependabot found alerts. Failing the job."
+          exit 1
+        fi
     - name: Post Dependabot results as a comment
       if: always()
       uses: actions/github-script@v6
@@ -196,4 +214,4 @@ jobs:
       run: |
         IMAGE_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}"
         docker build -t $IMAGE_URI -f codegen/Dockerfile codegen
-        docker push $IMAGE_URI 
+        docker push $IMAGE_URI
