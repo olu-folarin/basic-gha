@@ -150,6 +150,7 @@ jobs:
              "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
         echo "$response" > dependabot_alerts.json
     - name: Check Dependabot alerts
+      id: check-dependabot-alerts
       run: |
         if jq -e 'length > 0' dependabot_alerts.json > /dev/null; then
           echo "Dependabot found alerts. Failing the job."
