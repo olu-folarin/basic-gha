@@ -11,17 +11,30 @@ env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
   ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
   IMAGE_TAG: ${{ github.sha }}
+  CODEGEN_DIR: codegen
 
 permissions:
   contents: read
   security-events: write
   issues: write
   pull-requests: write
-  dependabot-alerts: read  # Add this permission
 
 jobs:
-  # Test job remains the same
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - name: Debug Directory Structure
+      run: |
+        echo "Repository structure:"
+        tree || ls -R
+        echo "Contents of codegen directory:"
+        ls -la codegen/
+
   test:
+    needs: debug
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -29,23 +42,22 @@ jobs:
       with:
         go-version: '1.20'
     - name: Run tests
+      working-directory: ${{ env.CODEGEN_DIR }}
       run: |
-        cd codegen
         if [ ! -f go.mod ]; then
           go mod init example.com/m
         fi
         go mod tidy
         go test -v ./...
 
-  # Gitleaks job remains the same
   gitleaks:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
     - name: Run Gitleaks
       run: |
-        docker run --rm -v $GITHUB_WORKSPACE:/workspace zricethezav/gitleaks:latest detect \
-          --source /workspace \
+        docker run --rm -v ${{ github.workspace }}:/workspace zricethezav/gitleaks:latest detect \
+          --source /workspace/codegen \
           --report-format json \
           --report-path /workspace/gitleaks_results.json
         
@@ -89,18 +101,21 @@ jobs:
             body: comment
           });
 
-  # Semgrep job remains the same
   semgrep:
     runs-on: ubuntu-latest 
     steps:
     - uses: actions/checkout@v3
     - name: Run Semgrep
       run: |
-        docker run --rm -v $GITHUB_WORKSPACE:/src returntocorp/semgrep:latest \
-          semgrep --config=auto \
+        docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep:latest \
+          semgrep scan \
+          --config=auto \
           --config=p/security-audit \
           --config=p/secrets \
           --config=p/ci \
+          --include="codegen/**/*.go" \
+          --include="codegen/go.mod" \
+          --include="codegen/go.sum" \
           --json > semgrep_results.json
         
         if jq -e '.results | length > 0' semgrep_results.json > /dev/null; then
@@ -149,41 +164,38 @@ jobs:
             body: comment
           });
 
-  # Updated Dependabot job
   dependabot:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    - uses: actions/setup-go@v4
+      with:
+        go-version: '1.20'
     - name: Get Dependabot alerts
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        # First try to get Dependabot alerts
         response=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
           -H "Accept: application/vnd.github.v4+json" \
           "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
         
-        # Check if the response contains an error
         if echo "$response" | jq -e 'has("message")' > /dev/null; then
           echo "::warning::Error accessing Dependabot alerts: $(echo "$response" | jq -r '.message')"
-          # Create an empty array as fallback
           echo "[]" > dependabot_alerts.json
         else
           echo "$response" > dependabot_alerts.json
           
-          # Check for actual alerts
           if echo "$response" | jq -e 'length > 0' > /dev/null; then
             echo "::warning::Found Dependabot security alerts"
             echo "SCAN_FAILED=true" >> $GITHUB_ENV
           fi
         fi
     - name: Analyze dependencies
+      working-directory: ${{ env.CODEGEN_DIR }}
       run: |
-        # Additional dependency analysis using go list
-        cd codegen
-        go list -json -m all > go_modules.json
+        go list -json -m all > ../go_modules.json
     - name: Post results
-      if: always() 
+      if: always()
       uses: actions/github-script@v6
       with:
         script: |
@@ -196,8 +208,7 @@ jobs:
             alerts = JSON.parse(content);
             if (!Array.isArray(alerts)) alerts = [];
             
-            // Read Go modules information
-            const modulesContent = fs.readFileSync('codegen/go_modules.json', 'utf8');
+            const modulesContent = fs.readFileSync('go_modules.json', 'utf8');
             modules = JSON.parse(modulesContent);
           } catch (error) {
             console.error('Error parsing results:', error);
@@ -241,7 +252,6 @@ jobs:
             body: comment
           });
 
-  # Build job remains the same
   build:
     needs: [test, gitleaks, semgrep, dependabot]
     runs-on: ubuntu-latest
@@ -252,8 +262,8 @@ jobs:
     - uses: actions/checkout@v3
     - name: Verify Dockerfile
       run: |
-        if [ ! -f codegen/Dockerfile ]; then
-          echo "::error::Dockerfile not found!"
+        if [ ! -f ${{ env.CODEGEN_DIR }}/Dockerfile ]; then
+          echo "::error::Dockerfile not found in ${{ env.CODEGEN_DIR }}!"
           exit 1
         fi
     - uses: aws-actions/configure-aws-credentials@v2
@@ -266,5 +276,5 @@ jobs:
     - name: Build and push
       run: |
         IMAGE_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}"
-        docker build -t $IMAGE_URI -f codegen/Dockerfile codegen
+        docker build -t $IMAGE_URI -f ${{ env.CODEGEN_DIR }}/Dockerfile ${{ env.CODEGEN_DIR }}
         docker push $IMAGE_URI
