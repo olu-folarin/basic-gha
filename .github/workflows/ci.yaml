@@ -119,7 +119,7 @@ jobs:
           --json > semgrep_results.json
         
         if jq -e '.results | length > 0' semgrep_results.json > /dev/null; then
-          echo "::warning::Semgrep found security issues"
+          echo "::error::Semgrep found security issues"
           echo "SCAN_FAILED=true" >> $GITHUB_ENV
         fi
     - name: Post results  
@@ -193,6 +193,7 @@ jobs:
     - name: Analyze dependencies
       working-directory: ${{ env.CODEGEN_DIR }}
       run: |
+        go mod download github.com/go-sql-driver/mysql
         go list -json -m all > ../go_modules.json
     - name: Post results
       if: always()
