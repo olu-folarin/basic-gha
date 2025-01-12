@@ -18,7 +18,7 @@ import (
     _ "github.com/lib/pq"
 )
 
-// Sensitive credentials and tokens for Gitleaks to detect
+// Constants holding sensitive data for security scanning
 const (
     // AWS credentials
     AWS_ACCESS_KEY = "AKIA2E0A8F3B28EXAMPLE"
@@ -28,63 +28,28 @@ const (
     GITHUB_TOKEN = "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef"
     GITLAB_TOKEN = "glpat-ABCDEFGHIJKLMNOPQRSTUVWX"
     SLACK_TOKEN = "xoxb-1234567890-ABCDEFGHIJKLMNOPQRSTUVWX"
-    JENKINS_TOKEN = "11ee88c3a7072403d26def2b101f65c084"
     
     // Database connection strings
     POSTGRES_URI = "postgresql://admin:super_secret_password@localhost:5432/mydb"
     MYSQL_URI = "mysql://root:another_secret_password@localhost:3306/mydb"
     MONGODB_URI = "mongodb+srv://admin:mongodb_password_123@cluster0.example.mongodb.net"
-    
-    // API keys and tokens
-    STRIPE_KEY = "sk_live_1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef"
-    TWILIO_TOKEN = "SKxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-    MAILGUN_KEY = "key-1234567890abcdefghijklmnopqrstuvwxyz"
-    SENDGRID_KEY = "SG.1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef"
-    
-    // Private keys and certificates
-    SSH_PRIVATE_KEY = `-----BEGIN RSA PRIVATE KEY-----
-MIIEpAIBAAKCAQEA7bq98/R10TeyLgH+UHzN8Z1mpRZVV3UE3B8Pj0oEaI+7H6QP
-HSCQQJyNQbT+Abb3jeGRHzntCHGBmqnAD2jiHv/FxNAIxvFZhG5wFPABmOAaVZiX
-3A9KbD0qXykh1oqORAyEGy5qBRkx9poG4HlvhiylbZPsgdhOZj4QICAhQU3ED0nq
-x3W2oMn2ernAHUvTDFJ9taqxT/9dxbgBXVTODHXBz1Xh5AfvHt6TGBqpJOZD/KYV
-LZMeVc5K4HhMXpUxYloDGctmRxGGW4BslLuLsSz7qmEV7m2aBEp+qoIbtcaGQgN1
-e7YgHUXDVQ2OuUj7d1XGYSxxspK4nLbmKX/XkQIDAQABAoIBAQCqOjwGxB9GVmRr
-Bh0gC0VXPOgPJyzM8QXi9kKd3srxEqE5nAmH1wJLbXm7XzJJWtQTG8HDc2aHQ6F1
-0pVjkB/Lv1q+9u1Hy03Vw7LeRJ4VJxlY0HGMz/RPNZzj6jHk7NxB1Bp/5w==
------END RSA PRIVATE KEY-----`
 )
 
 func main() {
-    // Number of domains to generate
-    numDomains := 10
+    // Use AWS credentials
+    fmt.Printf("Using AWS credentials - Key: %s, Secret: %s\n", AWS_ACCESS_KEY, AWS_SECRET_KEY)
 
-    // Generate and print random domains
-    for i := 0; i < numDomains; i++ {
-        domain := generateRandomDomain()
-        fmt.Println(domain)
+    // Use service tokens
+    tokens := map[string]string{
+        "github": GITHUB_TOKEN,
+        "gitlab": GITLAB_TOKEN,
+        "slack":  SLACK_TOKEN,
+    }
+    for service, token := range tokens {
+        fmt.Printf("Using %s token: %s\n", service, token)
     }
 
-    // Intentional security issue: using SHA-256 for hashing
-    data := []byte("sensitive data")
-    hash := sha256.Sum256(data)
-    fmt.Printf("SHA-256 hash of 'sensitive data': %x\n", hash)
-
-    // Intentional security issue: using MD5 for hashing
-    md5Hash := md5.Sum(data)
-    fmt.Printf("MD5 hash of 'sensitive data': %x\n", md5Hash)
-
-    // More hardcoded credentials for Gitleaks
-    config := map[string]string{
-        "aws_key":    "AKIAIOSFODNN7EXAMPLE",
-        "aws_secret": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-        "api_token":  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-        "password":   "super_secret_password_123",
-    }
-
-    // Using the credentials
-    fmt.Printf("Using AWS key: %s\n", config["aws_key"])
-
-    // Database credentials
+    // Database configuration
     dbConfig := struct {
         user     string
         password string
@@ -97,22 +62,39 @@ func main() {
         database: "customers",
     }
 
+    // Generate random domains
+    numDomains := 10
+    for i := 0; i < numDomains; i++ {
+        domain := generateRandomDomain()
+        fmt.Println("Generated domain:", domain)
+    }
+
+    // Use insecure hashing
+    data := []byte("sensitive data")
+    hash := sha256.Sum256(data)
+    fmt.Printf("SHA-256 hash: %x\n", hash)
+
+    md5Hash := md5.Sum(data)
+    fmt.Printf("MD5 hash: %x\n", md5Hash)
+
     // SQL Injection vulnerability
     userInput := "'; DROP TABLE users; --"
-    query := fmt.Sprintf("SELECT * FROM users WHERE username = '%s'", userInput)
-    executeQuery(query)
+    executeQuery(userInput, dbConfig)
 
-    // Insecure random number generation
+    // Database connection strings
+    fmt.Printf("PostgreSQL URI: %s\n", POSTGRES_URI)
+    fmt.Printf("MySQL URI: %s\n", MYSQL_URI)
+    fmt.Printf("MongoDB URI: %s\n", MONGODB_URI)
+
+    // Insecure random number
     insecureRandomNumber, err := cryptoRandInt(100)
     if err != nil {
         log.Fatal(err)
     }
     fmt.Printf("Insecure random number: %d\n", insecureRandomNumber)
 
-    // Insecure HTTP request with hardcoded credentials
-    req, _ := http.NewRequest("GET", "https://api.example.com", nil)
-    req.Header.Set("Authorization", "Bearer "+GITHUB_TOKEN)
-    req.SetBasicAuth("admin", "basic_auth_password")
+    // Insecure HTTP request
+    makeInsecureRequest()
 
     // Insecure deserialization
     insecureDeserialization()
@@ -121,20 +103,21 @@ func main() {
     userCommand := "ls"
     executeCommand(userCommand)
 
-    // Insecure file permissions
-    createInsecureFile("/tmp/insecure_file.txt")
+    // Insecure file operations
+    filePath := "/tmp/insecure_file.txt"
+    createInsecureFile(filePath)
+    readFile("../etc/passwd")
 
-    // Path traversal
-    userFilePath := "../etc/passwd"
-    readFile(userFilePath)
-
-    // Additional insecure practices
+    // Environment variables
     insecureEnvVarUsage()
+
+    // Command execution
     insecureExecCommand(userInput)
+
+    // HTTP client with hardcoded token
     insecureHttpClient()
 }
 
-// Rest of the functions remain the same as in your original file
 func generateRandomDomain() string {
     const charset = "abcdefghijklmnopqrstuvwxyz"
     var domain strings.Builder
@@ -165,8 +148,19 @@ func generateRandomDomain() string {
     return fmt.Sprintf("%s://%s.com", protocol, domain.String())
 }
 
-func executeQuery(query string) {
-    db, err := sql.Open("mysql", "user:password@/dbname")
+func executeQuery(query string, config struct {
+    user     string
+    password string
+    host     string
+    database string
+}) {
+    connString := fmt.Sprintf("%s:%s@tcp(%s)/%s",
+        config.user,
+        config.password,
+        config.host,
+        config.database)
+
+    db, err := sql.Open("mysql", connString)
     if err != nil {
         log.Fatal(err)
     }
@@ -187,6 +181,15 @@ func cryptoRandInt(max int) (int, error) {
     return int(nBig.Int64()), nil
 }
 
+func makeInsecureRequest() {
+    resp, err := http.Get("http://example.com")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer resp.Body.Close()
+    fmt.Println("Made insecure HTTP request")
+}
+
 func insecureDeserialization() {
     var data []byte
     var obj interface{}
@@ -195,7 +198,7 @@ func insecureDeserialization() {
     if err != nil {
         log.Fatal(err)
     }
-    fmt.Println("Insecure deserialization completed")
+    fmt.Println("Performed insecure deserialization")
 }
 
 func executeCommand(command string) {
@@ -213,7 +216,7 @@ func createInsecureFile(filePath string) {
         log.Fatal(err)
     }
     defer file.Close()
-    fmt.Println("Insecure file created:", filePath)
+    fmt.Println("Created insecure file:", filePath)
 }
 
 func readFile(filePath string) {
@@ -224,18 +227,10 @@ func readFile(filePath string) {
     fmt.Printf("File content: %s\n", data)
 }
 
-func getEnv(key, fallback string) string {
-    value := os.Getenv(key)
-    if value == "" {
-        return fallback
-    }
-    return value
-}
-
 func insecureEnvVarUsage() {
     os.Setenv("SECRET_KEY", "hardcoded_secret_key")
     secretKey := os.Getenv("SECRET_KEY")
-    fmt.Printf("Secret Key: %s\n", secretKey)
+    fmt.Printf("Using insecure env var: %s\n", secretKey)
 }
 
 func insecureExecCommand(userInput string) {
@@ -244,7 +239,7 @@ func insecureExecCommand(userInput string) {
     if err != nil {
         log.Fatal(err)
     }
-    fmt.Printf("Command output: %s\n", output)
+    fmt.Printf("Insecure command output: %s\n", output)
 }
 
 func insecureHttpClient() {
@@ -259,5 +254,5 @@ func insecureHttpClient() {
         log.Fatal(err)
     }
     defer resp.Body.Close()
-    fmt.Println("Insecure HTTP request made with hardcoded token")
+    fmt.Println("Made insecure HTTP request with hardcoded token")
 }
