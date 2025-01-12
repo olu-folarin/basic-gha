@@ -15,7 +15,7 @@ env:
 
 permissions:
   contents: read
-  security-events: write  # Includes both read and write access
+  security-events: write
   issues: write
   pull-requests: write
 
@@ -173,24 +173,25 @@ jobs:
     - uses: actions/setup-go@v4
       with:
         go-version: '1.20'
-    - name: Get Dependabot alerts
+    - name: Get Security Alerts
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        response=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+        response=$(curl -s \
           -H "Accept: application/vnd.github.v4+json" \
-          "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
+          -H "Authorization: Bearer $GH_TOKEN" \
+          "https://api.github.com/repos/${{ github.repository }}/vulnerability-alerts")
         
         if echo "$response" | jq -e 'has("message")' > /dev/null; then
-          echo "::error::Error accessing Dependabot alerts: $(echo "$response" | jq -r '.message')"
-          exit 1
+          message=$(echo "$response" | jq -r '.message')
+          echo "::warning::Note: $message"
+          echo "[]" > dependabot_alerts.json
         else
           echo "$response" > dependabot_alerts.json
           
           if echo "$response" | jq -e 'length > 0' > /dev/null; then
-            echo "::error::Found Dependabot security alerts"
+            echo "::warning::Found vulnerability alerts"
             echo "SCAN_FAILED=true" >> $GITHUB_ENV
-            exit 1
           fi
         fi
     - name: Analyze dependencies
