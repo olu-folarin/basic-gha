@@ -1,6 +1,9 @@
 name: CI Pipeline
 
 on:
+  push:
+    branches-ignore:
+      - 'dependabot/**'
   pull_request:
     branches:
       - main
@@ -20,7 +23,21 @@ permissions:
   pull-requests: write
 
 jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - name: Debug Directory Structure
+      run: |
+        echo "Repository structure:"
+        tree || ls -R
+        echo "Contents of codegen directory:"
+        ls -la codegen/
+
   test:
+    needs: debug
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -55,7 +72,6 @@ jobs:
       if: always()
       uses: actions/github-script@v6
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const fs = require('fs');
           let results = [];
@@ -93,7 +109,6 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Run Semgrep
-      id: scan
       run: |
         docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep:latest \
           semgrep scan \
@@ -115,7 +130,6 @@ jobs:
       if: always()
       uses: actions/github-script@v6
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const fs = require('fs');
           let results = {results:[]};
@@ -163,26 +177,22 @@ jobs:
         go-version: '1.20'
     - name: Get Security Alerts
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        response=$(curl -s \
-          -H "Accept: application/vnd.github.v4+json" \
-          -H "Authorization: Bearer $GH_TOKEN" \
-          "https://api.github.com/repos/${{ github.repository }}/vulnerability-alerts")
+        response=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github.v3+json" \
+          "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
         
         if echo "$response" | jq -e 'has("message")' > /dev/null; then
-          message=$(echo "$response" | jq -r '.message')
-          echo "::warning::API Response: $message"
-          if [[ "$message" == "Resource not accessible by integration" ]]; then
-            echo "DEPENDABOT_ERROR=true" >> $GITHUB_ENV
-          fi
+          echo "::warning::Error accessing Dependabot alerts: $(echo "$response" | jq -r '.message')"
           echo "[]" > dependabot_alerts.json
         else
           echo "$response" > dependabot_alerts.json
           
           if echo "$response" | jq -e 'length > 0' > /dev/null; then
-            echo "::warning::Found vulnerability alerts"
+            echo "::error::Found Dependabot security alerts"
             echo "SCAN_FAILED=true" >> $GITHUB_ENV
+            exit 1
           fi
         fi
     - name: Analyze dependencies
@@ -198,12 +208,10 @@ jobs:
       if: always()
       uses: actions/github-script@v6
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const fs = require('fs');
           let alerts = [];
           let modules = {};
-          let dependabotError = process.env.DEPENDABOT_ERROR === 'true';
           
           try {
             const content = fs.readFileSync('dependabot_alerts.json', 'utf8');
@@ -216,39 +224,42 @@ jobs:
             console.error('Error parsing results:', error);
           }
           
-          let commentBody = '## Dependabot Security Scan Results\n\n';
+          const comment = `## Dependabot Security Scan Results
+          ${alerts.length ? '⚠️ **Vulnerabilities Found**' : '✅ **No Vulnerabilities Found**'}
           
-          if (dependabotError) {
-            commentBody += '⚠️ **Error: Resource not accessible by integration**\n\n';
-            commentBody += 'The Dependabot scan could not access the necessary resources. Please ensure that Dependabot has the required permissions and try again.\n\n';
-          } else if (alerts.length > 0) {
-            commentBody += '⚠️ **Vulnerabilities Found**\n\n';
-            alerts.forEach(alert => {
-              commentBody += `### ${alert.security_advisory?.summary || 'Unknown Vulnerability'}\n`;
-              commentBody += `- **Severity**: ${alert.security_advisory?.severity || 'Unknown'}\n`;
-              commentBody += `- **Package**: ${alert.dependency?.package?.name || 'Unknown'} (version ${alert.dependency?.version || 'Unknown'})\n`;
-              commentBody += `- **Vulnerable Requirements**: ${alert.security_advisory?.vulnerableVersionRange || 'Unknown'}\n\n`;
-              commentBody += `**Description**: ${alert.security_advisory?.description || 'No description available'}\n\n`;
-              commentBody += `**Recommendation**: Update to ${alert.security_advisory?.patched_versions?.[0] || 'the latest version'}\n\n`;
-            });
-          } else {
-            commentBody += '✅ **No Vulnerabilities Found**\n\n';
-          }
+          ${alerts.map(alert => `
+          ### ${alert.security_advisory?.summary || 'Unknown Vulnerability'}
+          - **File**: \`${alert.dependency?.manifest_path || 'go.mod'}\`
+          - **Package**: ${alert.dependency?.package?.name || 'Unknown'} (version ${alert.dependency?.version || 'Unknown'})
+          - **Severity**: ${alert.security_advisory?.severity || 'Unknown'}
+          - **CVSS Score**: ${alert.security_advisory?.cvss?.score || 'N/A'}
+          - **Vulnerable Requirements**: ${alert.security_advisory?.vulnerableVersionRange || 'Unknown'}
           
-          commentBody += '### 📦 Current Dependencies\n';
-          commentBody += modules.Deps ? `Found ${modules.Deps.length} dependencies\n` : 'No dependency information available\n';
+          **Description**:
+          ${alert.security_advisory?.description || 'No description available'}
           
-          commentBody += '\n### 🛡️ Best Practices\n';
-          commentBody += '- Regularly update dependencies\n';
-          commentBody += '- Review security advisories\n';
-          commentBody += '- Use dependency lockfiles\n';
-          commentBody += '- Enable Dependabot security updates\n';
-          commentBody += '- Set up automated dependency updates\n';
+          **Recommendation**:
+          ${alert.security_advisory?.references?.[0]?.url ? 
+          `- Review the advisory: ${alert.security_advisory.references[0].url}\n` : ''}
+          - Update to ${alert.security_advisory?.patched_versions?.[0] || 'the latest version'}
+          - Run \`go get -u ${alert.dependency?.package?.name}@latest\`
+          
+          `).join('\n')}
+          
+          ### 📦 Current Dependencies
+          ${modules.Deps ? `Found ${modules.Deps.length} dependencies\n` : 'No dependency information available'}
+          
+          ### 🛡️ Best Practices
+          - Regularly update dependencies with \`go get -u\` and \`go mod tidy\`
+          - Review security advisories
+          - Use dependency lockfiles
+          - Enable Dependabot security updates
+          - Set up automated dependency updates`;
           
           await github.rest.issues.createComment({
             ...context.repo,
             issue_number: context.issue.number,
-            body: commentBody
+            body: comment
           });
 
   build:
