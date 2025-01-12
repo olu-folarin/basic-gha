@@ -15,7 +15,7 @@ env:
 
 permissions:
   contents: read
-  security-events: write
+  security-events: write  # Includes both read and write access
   issues: write
   pull-requests: write
 
@@ -106,6 +106,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Run Semgrep
+      id: scan
       run: |
         docker run --rm -v ${{ github.workspace }}:/src returntocorp/semgrep:latest \
           semgrep scan \
@@ -121,6 +122,7 @@ jobs:
         if jq -e '.results | length > 0' semgrep_results.json > /dev/null; then
           echo "::error::Semgrep found security issues"
           echo "SCAN_FAILED=true" >> $GITHUB_ENV
+          exit 1
         fi
     - name: Post results  
       if: always()
@@ -180,20 +182,25 @@ jobs:
           "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
         
         if echo "$response" | jq -e 'has("message")' > /dev/null; then
-          echo "::warning::Error accessing Dependabot alerts: $(echo "$response" | jq -r '.message')"
-          echo "[]" > dependabot_alerts.json
+          echo "::error::Error accessing Dependabot alerts: $(echo "$response" | jq -r '.message')"
+          exit 1
         else
           echo "$response" > dependabot_alerts.json
           
           if echo "$response" | jq -e 'length > 0' > /dev/null; then
-            echo "::warning::Found Dependabot security alerts"
+            echo "::error::Found Dependabot security alerts"
             echo "SCAN_FAILED=true" >> $GITHUB_ENV
+            exit 1
           fi
         fi
     - name: Analyze dependencies
       working-directory: ${{ env.CODEGEN_DIR }}
       run: |
-        go mod download github.com/go-sql-driver/mysql
+        if [ ! -f go.mod ]; then
+          go mod init example.com/m
+        fi
+        go mod tidy
+        go mod download
         go list -json -m all > ../go_modules.json
     - name: Post results
       if: always()
