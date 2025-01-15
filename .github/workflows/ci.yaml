@@ -283,7 +283,7 @@ jobs:
       run: |
         docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
           -v ${{ env.GITHUB_WORKSPACE }}:/workspace \
-          aquasec/trivy:latest --exit-code 1 --severity HIGH,CRITICAL ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+          aquasec/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
 
   push-image:
     needs: [gitleaks, semgrep, dependabot, trivy]
