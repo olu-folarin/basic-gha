@@ -270,6 +270,9 @@ jobs:
       run: |
         IMAGE_URI="${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
         docker build -t $IMAGE_URI -f ${{ env.CODEGEN_DIR }}/Dockerfile ${{ env.CODEGEN_DIR }}
+        docker save $IMAGE_URI -o image.tar
+    - name: Load Docker image
+      run: docker load -i image.tar
     - name: Save Docker image URI
       id: save-image-uri
       run: echo "IMAGE_URI=${IMAGE_URI}" >> $GITHUB_ENV
