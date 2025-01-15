@@ -252,8 +252,8 @@ jobs:
             body: comment
           });
 
-  build:
-    needs: [test, gitleaks, semgrep, dependabot]
+  build-image:
+    needs: test
     runs-on: ubuntu-latest
     if: |
       !contains(needs.*.result, 'failure') &&
@@ -265,7 +265,33 @@ jobs:
         if [ ! -f ${{ env.CODEGEN_DIR }}/Dockerfile ]; then
           echo "::error::Dockerfile not found in ${{ env.CODEGEN_DIR }}!"
           exit 1
-        fi
+    - name: Build Docker image
+      run: |
+        IMAGE_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}"
+        docker build -t $IMAGE_URI -f ${{ env.CODEGEN_DIR }}/Dockerfile ${{ env.CODEGEN_DIR }}
+    - name: Save Docker image URI
+      id: save-image-uri
+      run: echo "IMAGE_URI=${IMAGE_URI}" >> $GITHUB_ENV
+
+  trivy:
+    needs: build-image
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Run Trivy
+      run: |
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          -v ${{ env.GITHUB_WORKSPACE }}:/workspace \
+          aquasec/trivy:latest --exit-code 1 --severity HIGH,CRITICAL ${{ env.IMAGE_URI }}
+
+  push-image:
+    needs: [gitleaks, semgrep, dependabot, trivy]
+    runs-on: ubuntu-latest
+    if: |
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.outputs.SCAN_FAILED, 'true')
+    steps:
+    - uses: actions/checkout@v3
     - uses: aws-actions/configure-aws-credentials@v2
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -273,8 +299,6 @@ jobs:
         aws-region: ${{ secrets.AWS_REGION }}
     - uses: aws-actions/amazon-ecr-login@v2
       id: login-ecr
-    - name: Build and push
+    - name: Push Docker image to ECR
       run: |
-        IMAGE_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}"
-        docker build -t $IMAGE_URI -f ${{ env.CODEGEN_DIR }}/Dockerfile ${{ env.CODEGEN_DIR }}
         docker push $IMAGE_URI
