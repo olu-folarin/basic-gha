@@ -265,9 +265,10 @@ jobs:
         if [ ! -f ${{ env.CODEGEN_DIR }}/Dockerfile ]; then
           echo "::error::Dockerfile not found in ${{ env.CODEGEN_DIR }}!"
           exit 1
+        fi
     - name: Build Docker image
       run: |
-        IMAGE_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}"
+        IMAGE_URI="${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
         docker build -t $IMAGE_URI -f ${{ env.CODEGEN_DIR }}/Dockerfile ${{ env.CODEGEN_DIR }}
     - name: Save Docker image URI
       id: save-image-uri
@@ -282,7 +283,7 @@ jobs:
       run: |
         docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
           -v ${{ env.GITHUB_WORKSPACE }}:/workspace \
-          aquasec/trivy:latest --exit-code 1 --severity HIGH,CRITICAL ${{ env.IMAGE_URI }}
+          aquasec/trivy:latest --exit-code 1 --severity HIGH,CRITICAL ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
 
   push-image:
     needs: [gitleaks, semgrep, dependabot, trivy]
