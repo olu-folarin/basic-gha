@@ -1,16 +1,97 @@
-version: 2
-updates:
-  - package-ecosystem: "gomod"
-    directory: "/codegen"
-    schedule:
-      interval: "daily"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "go"
-    ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-patch"]
-    commit-message:
-      prefix: "chore"
-      include: "scope"
+dependabot:
+  runs-on: ubuntu-latest
+  permissions:
+    contents: read
+    security-events: write
+  steps:
+  - uses: actions/checkout@v3
+  - uses: actions/setup-go@v4
+    with:
+      go-version: '1.20'
+  - name: Get Dependabot alerts
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    run: |
+      response=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+        -H "Accept: application/vnd.github.v3+json" \
+        "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
+      
+      if echo "$response" | jq -e 'has("message")' > /dev/null; then
+        echo "::warning::Error accessing Dependabot alerts: $(echo "$response" | jq -r '.message')"
+        echo "[]" > dependabot_alerts.json
+      else
+        echo "$response" > dependabot_alerts.json
+        
+        if echo "$response" | jq -e 'length > 0' > /dev/null; then
+          echo "::error::Found Dependabot security alerts"
+          echo "SCAN_FAILED=true" >> $GITHUB_ENV
+          exit 1
+        fi
+      fi
+  - name: Analyze dependencies
+    working-directory: ${{ env.CODEGEN_DIR }}
+    run: |
+      if [ ! -f go.mod ]; then
+        go mod init example.com/m
+      fi
+      go mod tidy
+      go mod download
+      go list -json -m all > ../go_modules.json
+  - name: Post results
+    if: always()
+    uses: actions/github-script@v6
+    with:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+      script: |
+        const fs = require('fs');
+        let alerts = [];
+        let modules = {};
+        
+        try {
+          const content = fs.readFileSync('dependabot_alerts.json', 'utf8');
+          alerts = JSON.parse(content);
+          if (!Array.isArray(alerts)) alerts = [];
+          
+          const modulesContent = fs.readFileSync('go_modules.json', 'utf8');
+          modules = JSON.parse(modulesContent);
+        } catch (error) {
+          console.error('Error parsing results:', error);
+        }
+        
+        const comment = `## Dependabot Security Scan Results
+        ${alerts.length ? '⚠️ **Vulnerabilities Found**' : '✅ **No Vulnerabilities Found**'}
+        
+        ${alerts.map(alert => `
+        ### ${alert.security_advisory?.summary || 'Unknown Vulnerability'}
+        - **File**: \`${alert.dependency?.manifest_path || 'go.mod'}\`
+        - **Package**: ${alert.dependency?.package?.name || 'Unknown'} (version ${alert.dependency?.version || 'Unknown'})
+        - **Severity**: ${alert.security_advisory?.severity || 'Unknown'}
+        - **CVSS Score**: ${alert.security_advisory?.cvss?.score || 'N/A'}
+        - **Vulnerable Requirements**: ${alert.security_advisory?.vulnerableVersionRange || 'Unknown'}
+        
+        **Description**:
+        ${alert.security_advisory?.description || 'No description available'}
+        
+        **Recommendation**:
+        ${alert.security_advisory?.references?.[0]?.url ? 
+        `- Review the advisory: ${alert.security_advisory.references[0].url}\n` : ''}
+        - Update to ${alert.security_advisory?.patched_versions?.[0] || 'the latest version'}
+        - Run \`go get -u ${alert.dependency?.package?.name}@latest\`
+        
+        `).join('\n')}
+        
+        ### 📦 Current Dependencies
+        ${modules.Deps ? `Found ${modules.Deps.length} dependencies\n` : 'No dependency information available'}
+        
+        ### 🛡️ Best Practices
+        - Regularly update dependencies with \`go get -u\` and \`go mod tidy\`
+        - Review security advisories
+        - Use dependency lockfiles
+        - Enable Dependabot security updates
+        - Set up automated dependency updates`;
+        
+        await github.rest.issues.createComment({
+          ...context.repo,
+          issue_number: context.issue.number,
+          body: comment
+        });
