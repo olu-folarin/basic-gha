@@ -252,47 +252,56 @@ jobs:
             body: comment
           });
 
-          build-image:
-            needs: test
-            runs-on: ubuntu-latest
-            outputs:
-              image_name: ${{ steps.save-image-name.outputs.IMAGE_NAME }}
-            steps:
-            - uses: actions/checkout@v3
-            - name: Verify Dockerfile
-              run: |
-                if [ ! -f ${{ env.CODEGEN_DIR }}/Dockerfile ]; then
-                  echo "::error::Dockerfile not found in ${{ env.CODEGEN_DIR }}!"
-                  exit 1
-                fi
-            - name: Build Docker image
-              id: save-image-name
-              run: |
-                IMAGE_NAME="${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
-                docker build -t $IMAGE_NAME -f ${{ env.CODEGEN_DIR }}/Dockerfile ${{ env.CODEGEN_DIR }}
-                echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_OUTPUT
-        
-          trivy:
-            needs: build-image
-            runs-on: ubuntu-latest
-            steps:
-            - uses: actions/checkout@v3
-            - name: Build image for scanning
-              run: |
-                IMAGE_NAME="${{ needs.build-image.outputs.image_name }}"
-                docker build -t $IMAGE_NAME -f ${{ env.CODEGEN_DIR }}/Dockerfile ${{ env.CODEGEN_DIR }}
-            - name: Run Trivy vulnerability scanner
-              uses: aquasecurity/trivy-action@master
-              with:
-                image-ref: '${{ needs.build-image.outputs.image_name }}'
-                format: 'table'
-                exit-code: '1'
-                ignore-unfixed: true
-                vuln-type: 'os,library'
-                severity: 'CRITICAL,HIGH'
+  build-image:
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      image_name: ${{ steps.save-image-name.outputs.IMAGE_NAME }}
+    steps:
+    - uses: actions/checkout@v3
+    - name: Verify Dockerfile
+      run: |
+        if [ ! -f ${{ env.CODEGEN_DIR }}/Dockerfile ]; then
+          echo "::error::Dockerfile not found in ${{ env.CODEGEN_DIR }}!"
+          exit 1
+        fi
+    - name: Build Docker image
+      id: save-image-name
+      run: |
+        IMAGE_NAME="docker.io/my-organization/my-app:${{ github.sha }}"
+        docker build -t $IMAGE_NAME -f ${{ env.CODEGEN_DIR }}/Dockerfile ${{ env.CODEGEN_DIR }}
+        echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_OUTPUT
+
+  trivy:
+    needs: build-image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build image for scanning
+      run: |
+        IMAGE_NAME="${{ needs.build-image.outputs.image_name }}"
+        docker build -t $IMAGE_NAME -f ${{ env.CODEGEN_DIR }}/Dockerfile ${{ env.CODEGEN_DIR }}
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: '${{ needs.build-image.outputs.image_name }}'
+        exit-code: '1'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        format: 'template'
+        template: '@/contrib/sarif.tpl'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH'
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: 'trivy-results.sarif'
 
   push-image:
-    needs: [gitleaks, semgrep, dependabot]
+    needs: [gitleaks, semgrep, dependabot, trivy]
     runs-on: ubuntu-latest
     if: |
       !contains(needs.*.result, 'failure') &&
@@ -306,6 +315,15 @@ jobs:
         aws-region: ${{ secrets.AWS_REGION }}
     - uses: aws-actions/amazon-ecr-login@v2
       id: login-ecr
-    - name: Push Docker image to ECR
+    - name: Tag and push image
       run: |
-        docker push ${{ needs.build-image.outputs.image_name }}
+        # Get local image name
+        LOCAL_IMAGE="${{ needs.build-image.outputs.image_name }}"
+        # Create ECR image name
+        ECR_IMAGE="${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
+        # Build image again (since jobs are isolated)
+        docker build -t $LOCAL_IMAGE -f ${{ env.CODEGEN_DIR }}/Dockerfile ${{ env.CODEGEN_DIR }}
+        # Tag for ECR
+        docker tag $LOCAL_IMAGE $ECR_IMAGE
+        # Push to ECR
+        docker push $ECR_IMAGE
