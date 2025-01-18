@@ -1,0 +1,16 @@
+version: 2
+updates:
+  - package-ecosystem: "gomod"
+    directory: "/codegen"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "go"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-patch"]
+    commit-message:
+      prefix: "chore"
+      include: "scope"
