@@ -320,30 +320,3 @@ jobs:
       with:
         sarif_file: trivy-results.sarif
 
-  push-image:
-    needs: [gitleaks, semgrep, dependabot, trivy]
-    runs-on: ubuntu-latest
-    if: |
-      !contains(needs.*.result, 'failure') &&
-      !contains(needs.*.outputs.SCAN_FAILED, 'true')
-    steps:
-    - uses: actions/checkout@v3
-    - uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
-    - uses: aws-actions/amazon-ecr-login@v2
-      id: login-ecr
-    - name: Tag and push image
-      run: |
-        # Get local image name
-        LOCAL_IMAGE="${{ needs.build-image.outputs.image_name }}"
-        # Create ECR image name
-        ECR_IMAGE="${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/test-push-image:${{ env.IMAGE_TAG }}"
-        # Build image again (since jobs are isolated)
-        docker build -t $LOCAL_IMAGE -f ${{ env.CODEGEN_DIR }}/Dockerfile ${{ env.CODEGEN_DIR }}
-        # Tag for ECR
-        docker tag $LOCAL_IMAGE $ECR_IMAGE
-        # Push to ECR
-        docker push $ECR_IMAGE
