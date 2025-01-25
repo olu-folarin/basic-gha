@@ -1,7 +1,6 @@
 package main
 
 import (
-    "crypto/md5"
     "crypto/rand"
     "crypto/sha256"
     "database/sql"
@@ -24,10 +23,6 @@ const (
     AWS_ACCESS_KEY = "AKIA2E0A8F3B28EXAMPLE"
     AWS_SECRET_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
     
-    // Service tokens
-    GITHUB_TOKEN = "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef"
-    GITLAB_TOKEN = "glpat-ABCDEFGHIJKLMNOPQRSTUVWX"
-    SLACK_TOKEN = "xoxb-1234567890-ABCDEFGHIJKLMNOPQRSTUVWX"
     
     // Database connection strings
     POSTGRES_URI = "postgresql://admin:super_secret_password@localhost:5432/mydb"
@@ -38,16 +33,6 @@ const (
 func main() {
     // Use AWS credentials
     fmt.Printf("Using AWS credentials - Key: %s, Secret: %s\n", AWS_ACCESS_KEY, AWS_SECRET_KEY)
-
-    // Use service tokens
-    tokens := map[string]string{
-        "github": GITHUB_TOKEN,
-        "gitlab": GITLAB_TOKEN,
-        "slack":  SLACK_TOKEN,
-    }
-    for service, token := range tokens {
-        fmt.Printf("Using %s token: %s\n", service, token)
-    }
 
     // Database configuration
     dbConfig := struct {
@@ -69,13 +54,10 @@ func main() {
         fmt.Println("Generated domain:", domain)
     }
 
-    // Use insecure hashing
+    // Use SHA256 hashing
     data := []byte("sensitive data")
     hash := sha256.Sum256(data)
-    fmt.Printf("SHA-256 hash: %x\n", hash)
-
-    md5Hash := md5.Sum(data)
-    fmt.Printf("MD5 hash: %x\n", md5Hash)
+    fmt.Printf("SHA256 hash: %x\n", hash)
 
     // SQL Injection vulnerability
     userInput := "'; DROP TABLE users; --"
@@ -136,7 +118,7 @@ func generateRandomDomain() string {
         domain.WriteByte(charset[charIndex])
     }
 
-    protocol := "http"
+    protocol := "https"
     protocolChoice, err := cryptoRandInt(2)
     if err != nil {
         log.Fatal(err)
@@ -182,7 +164,7 @@ func cryptoRandInt(max int) (int, error) {
 }
 
 func makeInsecureRequest() {
-    resp, err := http.Get("http://example.com")
+    resp, err := http.Get("https://example.com")
     if err != nil {
         log.Fatal(err)
     }
@@ -202,7 +184,9 @@ func insecureDeserialization() {
 }
 
 func executeCommand(command string) {
-    cmd := exec.Command(command)
+    // Ensure the command is a known safe command
+    // Example: cmd := exec.Command("ls", "-la")
+    cmd := exec.Command("ls", "-la")
     output, err := cmd.CombinedOutput()
     if err != nil {
         log.Fatal(err)
@@ -234,7 +218,9 @@ func insecureEnvVarUsage() {
 }
 
 func insecureExecCommand(userInput string) {
-    cmd := exec.Command("sh", "-c", userInput)
+    // Avoid using sh -c with user input directly
+    // Example: cmd := exec.Command("echo", userInput)
+    cmd := exec.Command("echo", userInput)
     output, err := cmd.CombinedOutput()
     if err != nil {
         log.Fatal(err)
@@ -244,7 +230,7 @@ func insecureExecCommand(userInput string) {
 
 func insecureHttpClient() {
     client := &http.Client{}
-    req, err := http.NewRequest("GET", "http://example.com", nil)
+    req, err := http.NewRequest("GET", "https://example.com", nil)
     if err != nil {
         log.Fatal(err)
     }
