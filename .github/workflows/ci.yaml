@@ -261,12 +261,18 @@ jobs:
     - uses: actions/checkout@v3
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v1
-    - name: Build Docker image
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    - name: Build and push Docker image
       run: |
-        docker build -t my-local-image:latest -f codegen/Dockerfile codegen
+        docker build -t ${{ secrets.DOCKER_USERNAME }}/my-local-image:latest -f codegen/Dockerfile codegen
+        docker push ${{ secrets.DOCKER_USERNAME }}/my-local-image:latest
     - name: Save image name
       id: save-image-name
-      run: echo "::set-output name=IMAGE_NAME::my-local-image:latest"
+      run: echo "::set-output name=IMAGE_NAME::${{ secrets.DOCKER_USERNAME }}/my-local-image:latest"
 
   trivy:
     needs: build-image
@@ -284,6 +290,13 @@ jobs:
         echo "deb https://aquasecurity.github.io/trivy-repo/deb focal main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
         sudo apt-get update -y
         sudo apt-get install -y trivy
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    - name: Pull Docker image
+      run: docker pull ${{ needs.build-image.outputs.image_name }}
     - name: Run Trivy Vulnerability Scanner
       run: |
         IMAGE_NAME="${{ needs.build-image.outputs.image_name }}"
