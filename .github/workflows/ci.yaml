@@ -272,7 +272,7 @@ jobs:
         docker push ${{ secrets.DOCKER_USERNAME }}/my-local-image:latest
     - name: Save image name
       id: save-image-name
-      run: echo "::set-output name=IMAGE_NAME::${{ secrets.DOCKER_USERNAME }}/my-local-image:latest"
+      run: echo "IMAGE_NAME=${{ secrets.DOCKER_USERNAME }}/my-local-image:latest" >> $GITHUB_ENV
 
   trivy:
     needs: build-image
@@ -296,10 +296,9 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
     - name: Pull Docker image
-      run: docker pull ${{ needs.build-image.outputs.image_name }}
+      run: docker pull ${{ env.IMAGE_NAME }}
     - name: Run Trivy Vulnerability Scanner
       run: |
-        IMAGE_NAME="${{ needs.build-image.outputs.image_name }}"
         echo "Scanning image: $IMAGE_NAME"
         trivy image --format sarif -o trivy-results.sarif "$IMAGE_NAME"
     - name: Debug Trivy Execution
