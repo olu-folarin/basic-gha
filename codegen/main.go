@@ -17,7 +17,7 @@ import (
     _ "github.com/lib/pq"
 )
 
-// Constants holding sensitive data for security scanning
+// Constants holding sensitive data for security scanning tools
 const (
     // AWS credentials
     AWS_ACCESS_KEY = "AKIA2E0A8F3B28EXAMPLE"
