@@ -184,7 +184,9 @@ func insecureDeserialization() {
 }
 
 func executeCommand(command string) {
-    cmd := exec.Command(command)
+    // Ensure the command is a known safe command
+    // Example: cmd := exec.Command("ls", "-la")
+    cmd := exec.Command("ls", "-la")
     output, err := cmd.CombinedOutput()
     if err != nil {
         log.Fatal(err)
@@ -216,7 +218,9 @@ func insecureEnvVarUsage() {
 }
 
 func insecureExecCommand(userInput string) {
-    cmd := exec.Command("sh", "-c", userInput)
+    // Avoid using sh -c with user input directly
+    // Example: cmd := exec.Command("echo", userInput)
+    cmd := exec.Command("echo", userInput)
     output, err := cmd.CombinedOutput()
     if err != nil {
         log.Fatal(err)
