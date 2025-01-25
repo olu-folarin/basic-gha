@@ -306,6 +306,14 @@ jobs:
         ignore-unfixed: true
         scanners: 'vuln'
         vuln-type: 'os,library'
+    - name: Check Trivy SARIF output
+      run: |
+        if [ -f trivy-results.sarif ]; then
+          echo "SARIF file generated successfully."
+        else
+          echo "Failed to generate SARIF file."
+          exit 1
+        fi
     - name: Upload Trivy scan results to GitHub Security tab
       if: always()
       uses: github/codeql-action/upload-sarif@v3
