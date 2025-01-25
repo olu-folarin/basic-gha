@@ -300,24 +300,12 @@ jobs:
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: '${{ needs.build-image.outputs.image_name }}'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
         exit-code: '1'
         ignore-unfixed: true
         scanners: 'vuln'
         vuln-type: 'os,library'
-        format: 'table'  # Add table format for debugging
-        severity: 'CRITICAL,HIGH'
-    - name: Run Trivy with SARIF output
-      uses: aquasecurity/trivy-action@master
-      if: always()  # Run even if previous step fails
-      with:
-        image-ref: '${{ needs.build-image.outputs.image_name }}'
-        exit-code: '0'  # Don't fail on this step
-        ignore-unfixed: true
-        scanners: 'vuln'
-        vuln-type: 'os,library'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-        severity: 'CRITICAL,HIGH'
     - name: Upload Trivy scan results to GitHub Security tab
       if: always()
       uses: github/codeql-action/upload-sarif@v3
