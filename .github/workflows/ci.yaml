@@ -292,34 +292,33 @@ jobs:
       security-events: write
     steps:
     - uses: actions/checkout@v3
-    - name: Build image for scanning
+
+    - name: Install Trivy
+      run: |
+       sudo apt-get update -y
+        sudo apt-get install -y wget apt-transport-https gnupg lsb-release
+        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+        echo "deb https://aquasecurity.github.io/trivy-repo/deb focal main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+        sudo apt-get update -y
+        sudo apt-get install -y trivy
+
+    - name: Run Trivy Vulnerability Scanner
       run: |
         IMAGE_NAME="${{ needs.build-image.outputs.image_name }}"
-        echo "Building image for scanning: $IMAGE_NAME"
-        docker build -t $IMAGE_NAME -f ${{ env.CODEGEN_DIR }}/Dockerfile ${{ env.CODEGEN_DIR }}
-    - name: Run Trivy vulnerability scanner
-      run: |
-        IMAGE_NAME="${{ needs.build-image.outputs.image_name }}"
-        echo "Running Trivy scan on image: $IMAGE_NAME"
-        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-          -v ${{ github.workspace }}:/workspace aquasecurity/trivy:latest image --format sarif -o /workspace/trivy-results.sarif $IMAGE_NAME
+        echo "Scanning image: $IMAGE_NAME"
+        trivy image --format sarif -o trivy-results.sarif "$IMAGE_NAME"
+
     - name: Debug Trivy Execution
       run: |
-        echo "Checking Trivy execution logs..."
-        cat trivy-results.sarif || echo "SARIF file not found."
+        echo "Inspecting SARIF output..."
         ls -la
-    - name: Check Trivy SARIF output
-      run: |
-        if [ -f trivy-results.sarif ]; then
-          echo "SARIF file generated successfully."
-        else
-          echo "Failed to generate SARIF file."
-          exit 1
-    - name: Upload Trivy scan results to GitHub Security tab
+        cat trivy-results.sarif || echo "SARIF file not found."
+
+    - name: Upload Trivy Scan Results
       if: always()
       uses: github/codeql-action/upload-sarif@v3
       with:
-        sarif_file: 'trivy-results.sarif'
+        sarif_file: trivy-results.sarif
 
   push-image:
     needs: [gitleaks, semgrep, dependabot, trivy]
