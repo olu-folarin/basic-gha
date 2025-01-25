@@ -265,12 +265,23 @@ jobs:
           echo "::error::Dockerfile not found in ${{ env.CODEGEN_DIR }}!"
           exit 1
         fi
-    - name: Build Docker image
-      id: save-image-name
+    - name: Test AWS CLI
       run: |
-        IMAGE_NAME="docker.io/my-organization/my-app:${{ github.sha }}"
-        docker build -t $IMAGE_NAME -f ${{ env.CODEGEN_DIR }}/Dockerfile ${{ env.CODEGEN_DIR }}
-        echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_OUTPUT
+        aws sts get-caller-identity
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_REGION: ${{ secrets.AWS_REGION }}
+    - name: Log in to Amazon ECR
+      uses: aws-actions/amazon-ecr-login@v2
+    - name: Build, tag, and push image to ECR
+      env:
+        LOCAL_IMAGE: "my-local-image"
+        ECR_IMAGE: "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
+      run: |
+        docker build -t $LOCAL_IMAGE -f codegen/Dockerfile codegen
+        docker tag $LOCAL_IMAGE $ECR_IMAGE
+        docker push $ECR_IMAGE
 
   trivy:
     needs: build-image
