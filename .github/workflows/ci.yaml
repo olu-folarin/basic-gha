@@ -306,6 +306,12 @@ jobs:
         ignore-unfixed: true
         scanners: 'vuln'
         vuln-type: 'os,library'
+    - name: Debug Trivy Execution
+      run: |
+        echo "Checking Trivy execution logs..."
+        cat trivy-results.sarif || echo "SARIF file not found."
+        ls -la
+        exit 1
     - name: Check Trivy SARIF output
       run: |
         if [ -f trivy-results.sarif ]; then
