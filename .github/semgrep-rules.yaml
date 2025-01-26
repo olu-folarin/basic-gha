@@ -1,0 +1,21 @@
+rules:
+  - id: detect-hardcoded-aws-credentials
+    patterns:
+      - pattern-either:
+          - pattern: "AWS_ACCESS_KEY = $AWS_ACCESS_KEY"
+          - pattern: "AWS_SECRET_KEY = $AWS_SECRET_KEY"
+    message: "Hardcoded AWS credentials detected. Consider using environment variables."
+    languages:
+      - go
+    severity: ERROR
+
+  - id: detect-hardcoded-db-connection
+    patterns:
+      - pattern-either:
+          - pattern: "POSTGRES_URI = $URI"
+          - pattern: "MYSQL_URI = $URI"
+          - pattern: "MONGODB_URI = $URI"
+    message: "Hardcoded database connection string detected. Consider using environment variables or a secure vault."
+    languages:
+      - go
+    severity: ERROR
