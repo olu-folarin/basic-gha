@@ -98,6 +98,8 @@ func main() {
 
     // HTTP client with hardcoded token
     insecureHttpClient()
+
+    // Triggering the workflow with a minor change
 }
 
 func generateRandomDomain() string {
