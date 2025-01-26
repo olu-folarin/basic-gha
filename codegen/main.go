@@ -17,22 +17,18 @@ import (
     _ "github.com/lib/pq"
 )
 
-// Constants holding sensitive data for security scanning
-const (
-    // AWS credentials
-    AWS_ACCESS_KEY = os.Getenv("AWS_ACCESS_KEY")
-    AWS_SECRET_KEY = os.Getenv("AWS_SECRET_KEY")
-    
-    
-    // Database connection strings
-    POSTGRES_URI = os.Getenv("POSTGRES_URI")
-    MYSQL_URI = os.Getenv("MYSQL_URI")
-    MONGODB_URI = os.Getenv("MONGODB_URI")
-)
-
 func main() {
+    // Fetch AWS credentials from environment variables at runtime
+    awsAccessKey := os.Getenv("AWS_ACCESS_KEY")
+    awsSecretKey := os.Getenv("AWS_SECRET_KEY")
+
+    // Fetch Database connection strings from environment variables
+    postgresURI := os.Getenv("POSTGRES_URI")
+    mysqlURI := os.Getenv("MYSQL_URI")
+    mongodbURI := os.Getenv("MONGODB_URI")
+
     // Use AWS credentials
-    fmt.Printf("Using AWS credentials - Key: %s, Secret: %s\n", AWS_ACCESS_KEY, AWS_SECRET_KEY)
+    fmt.Printf("Using AWS credentials - Key: %s, Secret: %s\n", awsAccessKey, awsSecretKey)
 
     // Database configuration
     dbConfig := struct {
@@ -64,9 +60,9 @@ func main() {
     executeQuery(userInput, dbConfig)
 
     // Database connection strings
-    fmt.Printf("PostgreSQL URI: %s\n", POSTGRES_URI)
-    fmt.Printf("MySQL URI: %s\n", MYSQL_URI)
-    fmt.Printf("MongoDB URI: %s\n", MONGODB_URI)
+    fmt.Printf("PostgreSQL URI: %s\n", postgresURI)
+    fmt.Printf("MySQL URI: %s\n", mysqlURI)
+    fmt.Printf("MongoDB URI: %s\n", mongodbURI)
 
     // Insecure random number
     secureRandomNumber, err := rand.Int(rand.Reader, big.NewInt(100))
@@ -212,7 +208,7 @@ func readFile(filePath string) {
 }
 
 func insecureEnvVarUsage() {
-    os.Setenv("SECRET_KEY", "hardcoded_secret_key")
+    // Removed hardcoded secret key
     secretKey := os.Getenv("SECRET_KEY")
     fmt.Printf("Using insecure env var: %s\n", secretKey)
 }
@@ -229,18 +225,20 @@ func insecureExecCommand(userInput string) {
 }
 
 func insecureHttpClient() {
+    // Removed hardcoded token
     client := &http.Client{}
     req, err := http.NewRequest("GET", "https://example.com", nil)
     if err != nil {
         log.Fatal(err)
     }
-    req.Header.Set("Authorization", "Bearer hardcoded_token")
+    token := os.Getenv("AUTH_TOKEN")
+    req.Header.Set("Authorization", "Bearer "+token)
     resp, err := client.Do(req)
     if err != nil {
         log.Fatal(err)
     }
     defer resp.Body.Close()
-    fmt.Println("Made insecure HTTP request with hardcoded token")
+    fmt.Println("Made insecure HTTP request with token")
 }
 
 func sanitizeInput(input string) string {
