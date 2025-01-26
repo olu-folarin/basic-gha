@@ -20,14 +20,13 @@ import (
 // Constants holding sensitive data for security scanning
 const (
     // AWS credentials
-    AWS_ACCESS_KEY = "AKIA2E0A8F3B28EXAMPLE"
-    AWS_SECRET_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-    
-    
+    AWS_ACCESS_KEY = os.Getenv("AWS_ACCESS_KEY")
+    AWS_SECRET_KEY = os.Getenv("AWS_SECRET_KEY")
+
     // Database connection strings
-    POSTGRES_URI = "postgresql://admin:super_secret_password@localhost:5432/mydb"
-    MYSQL_URI = "mysql://root:another_secret_password@localhost:3306/mydb"
-    MONGODB_URI = "mongodb+srv://admin:mongodb_password_123@cluster0.example.mongodb.net"
+    POSTGRES_URI = os.Getenv("POSTGRES_URI")
+    MYSQL_URI = os.Getenv("MYSQL_URI")
+    MONGODB_URI = os.Getenv("MONGODB_URI")
 )
 
 func main() {
@@ -98,8 +97,10 @@ func main() {
 
     // HTTP client with hardcoded token
     insecureHttpClient()
+<<<<<<< HEAD
 
     // Triggering the workflow with a minor change
+>>>>>>> origin/main
 }
 
 func generateRandomDomain() string {
