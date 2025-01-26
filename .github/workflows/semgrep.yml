@@ -1,4 +1,16 @@
 rules:
+  - id: hardcoded-secret
+    patterns:
+      - pattern: "... = \"...\""
+    message: "Hardcoded secret detected."
+    languages: [go]
+    severity: WARNING
+    paths:
+      exclude:
+        - "codegen/main.go"
+    metadata:
+      description: "Detects hardcoded secrets but excludes game constants."
+
   - id: insecure-http
     patterns:
       - pattern: http.Get(...)
@@ -10,13 +22,6 @@ rules:
     patterns:
       - pattern: db.Exec(...)
     message: "Potential SQL injection vulnerability."
-    languages: [go]
-    severity: WARNING
-
-  - id: hardcoded-secret
-    patterns:
-      - pattern: "... = \"...\""
-    message: "Hardcoded secret detected."
     languages: [go]
     severity: WARNING
 
