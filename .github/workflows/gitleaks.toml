@@ -1,0 +1,32 @@
+title = "gitleaks config"
+[[rules]]
+description = "AWS Access Key"
+regex = '''AKIA[0-9A-Z]{16}'''
+tags = ["key", "AWS"]
+
+[[rules]]
+description = "AWS Secret Key"
+regex = '''(?i)aws(.{0,20})?(?-i)['\"][0-9a-zA-Z\/+]{40}['\"]'''
+tags = ["key", "AWS"]
+
+[[rules]]
+description = "Slack Token"
+regex = '''xox[baprs]-([0-9a-zA-Z]{10,48})?'''
+tags = ["key", "Slack"]
+
+[[rules]]
+description = "GitLab Personal Access Token"
+regex = '''glpat-[0-9a-zA-Z\-]{20,40}'''
+tags = ["key", "GitLab"]
+
+[[rules]]
+description = "Generic API Key"
+regex = '''(?i)(api_key|api_secret|access_token|auth_token|token|secret|key|password|passwd|pwd)['\"][0-9a-zA-Z\-]{20,40}['\"]'''
+tags = ["key", "Generic"]
+
+[[rules]]
+description = "Private Key"
+regex = '''-----BEGIN (RSA|DSA|EC|OPENSSH|PGP|PRIVATE) KEY-----'''
+tags = ["key", "Private"]
+
+# Add more rules as needed
