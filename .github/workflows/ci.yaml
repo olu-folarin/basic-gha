@@ -62,7 +62,7 @@ jobs:
         pip install semgrep
     - name: Run Semgrep
       run: |
-        semgrep --config=p/security-audit --json --output=semgrep_results.json codegen/
+        semgrep --config=.github/workflows/semgrep.yml --json --output=semgrep_results.json codegen/
       continue-on-error: true
     - name: Analyze Semgrep Results
       if: always()
@@ -70,6 +70,7 @@ jobs:
         if jq -e '.results | length > 0' semgrep_results.json > /dev/null; then
           echo "::error::Semgrep found security issues"
           echo "SCAN_FAILED=true" >> $GITHUB_ENV
+        fi
 
   dependabot:
     runs-on: ubuntu-latest
