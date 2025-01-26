@@ -64,6 +64,9 @@ jobs:
       run: |
         semgrep --config=.github/workflows/semgrep.yml --json --output=semgrep_results.json codegen/
       continue-on-error: true
+    - name: Log Semgrep Results
+      run: |
+        cat semgrep_results.json
     - name: Analyze Semgrep Results
       if: always()
       run: |
