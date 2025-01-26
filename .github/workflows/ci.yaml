@@ -256,7 +256,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     outputs:
-      image_name: ${{ steps.save-image-name.outputs.IMAGE_NAME }}
+      image_name: my-local-image:latest
     steps:
     - uses: actions/checkout@v3
     - name: Set up Docker Buildx
@@ -286,6 +286,7 @@ jobs:
         sudo apt-get install -y trivy
     - name: Run Trivy Vulnerability Scanner
       run: |
+        IMAGE_NAME="${{ needs.build-image.outputs.image_name }}"
         echo "Scanning image: $IMAGE_NAME"
         trivy image --format sarif -o trivy-results.sarif "$IMAGE_NAME"
     - name: Debug Trivy Execution
