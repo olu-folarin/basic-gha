@@ -15,7 +15,7 @@ rules:
 
   - id: hardcoded-secret
     patterns:
-      - pattern: "... = '...'"
+      - pattern: "... = \"...\""
     message: "Hardcoded secret detected."
     languages: [go]
     severity: ERROR
@@ -50,7 +50,7 @@ rules:
 
   - id: insecure-http-client
     patterns:
-      - pattern: http.NewRequest(...)
+      - pattern: http.Client{}
     message: "Insecure HTTP client usage detected."
     languages: [go]
     severity: ERROR

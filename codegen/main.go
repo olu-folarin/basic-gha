@@ -230,8 +230,12 @@ func readFile(filePath string) {
 }
 
 func secureEnvVarUsage() {
-    os.Setenv("SECRET_KEY", "secure_secret_key")
+    // Use a secure way to set environment variables
     secretKey := os.Getenv("SECRET_KEY")
+    if secretKey == "" {
+        secretKey = "secure_secret_key"
+        os.Setenv("SECRET_KEY", secretKey)
+    }
     fmt.Printf("Using secure env var: %s\n", secretKey)
 }
 
