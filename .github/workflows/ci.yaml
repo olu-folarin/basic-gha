@@ -43,13 +43,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    - name: Install Gitleaks
+      run: |
+        curl -sSL https://github.com/zricethezav/gitleaks/releases/download/v8.2.7/gitleaks_8.2.7_linux_x64.tar.gz | tar -xz -C /usr/local/bin gitleaks
     - name: Run Gitleaks
       run: |
         gitleaks detect --source=codegen --verbose
         if [ -s gitleaks_results.json ]; then
           echo "::warning::Gitleaks found potential secrets"
           echo "SCAN_FAILED=true" >> $GITHUB_ENV
-        fi
     - name: Post results
       if: always()
       uses: actions/github-script@v6
@@ -91,6 +93,9 @@ jobs:
     runs-on: ubuntu-latest 
     steps:
     - uses: actions/checkout@v3
+    - name: Install Semgrep
+      run: |
+        pip install semgrep
     - name: Run Semgrep
       id: scan
       run: |
@@ -99,7 +104,6 @@ jobs:
           echo "::error::Semgrep found security issues"
           echo "SCAN_FAILED=true" >> $GITHUB_ENV
           exit 1
-        fi
     - name: Post results  
       if: always()
       uses: actions/github-script@v6
