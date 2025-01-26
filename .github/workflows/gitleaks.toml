@@ -15,6 +15,11 @@ regex = '''xox[baprs]-([0-9a-zA-Z]{10,48})?'''
 tags = ["key", "Slack"]
 
 [[rules]]
+description = "GitHub Token"
+regex = '''ghp_[0-9a-zA-Z]{36}'''
+tags = ["key", "GitHub"]
+
+[[rules]]
 description = "GitLab Personal Access Token"
 regex = '''glpat-[0-9a-zA-Z\-]{20,40}'''
 tags = ["key", "GitLab"]
@@ -28,5 +33,15 @@ tags = ["key", "Generic"]
 description = "Private Key"
 regex = '''-----BEGIN (RSA|DSA|EC|OPENSSH|PGP|PRIVATE) KEY-----'''
 tags = ["key", "Private"]
+
+[[rules]]
+description = "Jenkins Token"
+regex = '''11ee88c3a7072403d26def2b101f65c084'''
+tags = ["key", "Jenkins"]
+
+[[rules]]
+description = "JWT"
+regex = '''eyJ[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+'''
+tags = ["key", "JWT"]
 
 # Add more rules as needed
