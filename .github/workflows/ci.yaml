@@ -295,8 +295,6 @@ jobs:
         echo "deb https://aquasecurity.github.io/trivy-repo/deb focal main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
         sudo apt-get update -y
         sudo apt-get install -y trivy
-    - name: Pull Docker image
-      run: docker pull ${{ env.IMAGE_NAME }}
     - name: Run Trivy Vulnerability Scanner
       run: |
         echo "Scanning image: $IMAGE_NAME"
