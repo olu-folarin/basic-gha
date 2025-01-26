@@ -48,46 +48,10 @@ jobs:
         curl -sSL https://github.com/zricethezav/gitleaks/releases/download/v8.2.7/gitleaks_8.2.7_linux_x64.tar.gz | tar -xz -C /usr/local/bin gitleaks
     - name: Run Gitleaks
       run: |
-        gitleaks detect --source=codegen --verbose
+        gitleaks detect --source=codegen --verbose --report-format=json --report-path=gitleaks_results.json
         if [ -s gitleaks_results.json ]; then
           echo "::warning::Gitleaks found potential secrets"
           echo "SCAN_FAILED=true" >> $GITHUB_ENV
-    - name: Post results
-      if: always()
-      uses: actions/github-script@v6
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          const fs = require('fs');
-          let results = [];
-          try {
-            results = JSON.parse(fs.readFileSync('gitleaks_results.json', 'utf8'));
-          } catch (error) {} 
-          
-          const comment = `## Gitleaks Security Scan Results
-          ${results.length ? '⚠️ **Secrets Found**' : '✅ **No Secrets Found**'}
-          
-          ${results.map(r => `
-          ### Secret detected in \`${r.File}\`
-          - **Location**: Line ${r.StartLine}
-          - **Rule Violated**: ${r.Rule}
-          - **Description**: ${r.Description || 'Potential secret or credential found'}
-          - **Recommendation**: Remove the secret and store it securely in environment variables or a secrets manager
-          - **Matched Content**: \`${r.Match}\`
-          
-          `).join('\n')}
-          
-          ${results.length ? '### 🔒 Best Practices\n' +
-          '- Never commit secrets, credentials or sensitive data\n' +
-          '- Use environment variables or secret management tools\n' +
-          '- Add sensitive patterns to .gitignore\n' +
-          '- Consider using pre-commit hooks to prevent secret commits' : ''}`;
-          
-          await github.rest.issues.createComment({
-            ...context.repo,
-            issue_number: context.issue.number,
-            body: comment
-          });
 
   semgrep:
     runs-on: ubuntu-latest 
@@ -99,53 +63,11 @@ jobs:
     - name: Run Semgrep
       id: scan
       run: |
-        semgrep --config=p/security-audit codegen/
+        semgrep --config=p/security-audit --json --output=semgrep_results.json codegen/
         if jq -e '.results | length > 0' semgrep_results.json > /dev/null; then
           echo "::error::Semgrep found security issues"
           echo "SCAN_FAILED=true" >> $GITHUB_ENV
           exit 1
-    - name: Post results  
-      if: always()
-      uses: actions/github-script@v6
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          const fs = require('fs');
-          let results = {results:[]};
-          try {
-            results = JSON.parse(fs.readFileSync('semgrep_results.json', 'utf8'));
-          } catch (error) {}
-          
-          const comment = `## Semgrep Security Scan Results
-          ${results.results.length ? '⚠️ **Security Issues Found**' : '✅ **No Security Issues Found**'}
-          
-          ${results.results.map(r => `
-          ### ${r.check_id}
-          - **File**: \`${r.path}\`
-          - **Line**: ${r.start.line}
-          - **Issue**: ${r.extra.message}
-          - **Impact**: ${r.extra.metadata?.impact || 'Potential security vulnerability'}
-          - **Confidence**: ${r.extra.metadata?.confidence || 'Unknown'}
-          
-          **Description**:
-          ${r.extra.metadata?.description || r.extra.message}
-          
-          **Recommendation**:
-          ${r.extra.metadata?.fix || 'Review and fix the identified security issue according to best practices'}
-          
-          `).join('\n')}
-          
-          ${results.results.length ? '### 🛡️ Best Practices\n' +
-          '- Follow secure coding guidelines\n' +
-          '- Implement proper input validation\n' +
-          '- Use security-focused code reviews\n' +
-          '- Keep security dependencies updated' : ''}`;
-          
-          await github.rest.issues.createComment({
-            ...context.repo,
-            issue_number: context.issue.number,
-            body: comment
-          });
 
   dependabot:
     runs-on: ubuntu-latest
@@ -173,7 +95,6 @@ jobs:
             echo "SCAN_FAILED=true" >> $GITHUB_ENV
             exit 1
           fi
-        fi
     - name: Analyze dependencies
       working-directory: ${{ env.CODEGEN_DIR }}
       run: |
@@ -183,64 +104,6 @@ jobs:
         go mod tidy
         go mod download
         go list -json -m all > ../go_modules.json
-    - name: Post results
-      if: always()
-      uses: actions/github-script@v6
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          const fs = require('fs');
-          let alerts = [];
-          let modules = {};
-          
-          try {
-            const content = fs.readFileSync('dependabot_alerts.json', 'utf8');
-            alerts = JSON.parse(content);
-            if (!Array.isArray(alerts)) alerts = [];
-            
-            const modulesContent = fs.readFileSync('go_modules.json', 'utf8');
-            modules = JSON.parse(modulesContent);
-          } catch (error) {
-            console.error('Error parsing results:', error);
-          }
-          
-          const comment = `## Dependabot Security Scan Results
-          ${alerts.length ? '⚠️ **Vulnerabilities Found**' : '✅ **No Vulnerabilities Found**'}
-          
-          ${alerts.map(alert => `
-          ### ${alert.security_advisory?.summary || 'Unknown Vulnerability'}
-          - **File**: \`${alert.dependency?.manifest_path || 'go.mod'}\`
-          - **Package**: ${alert.dependency?.package?.name || 'Unknown'} (version ${alert.dependency?.version || 'Unknown'})
-          - **Severity**: ${alert.security_advisory?.severity || 'Unknown'}
-          - **CVSS Score**: ${alert.security_advisory?.cvss?.score || 'N/A'}
-          - **Vulnerable Requirements**: ${alert.security_advisory?.vulnerableVersionRange || 'Unknown'}
-          
-          **Description**:
-          ${alert.security_advisory?.description || 'No description available'}
-          
-          **Recommendation**:
-          ${alert.security_advisory?.references?.[0]?.url ? 
-          `- Review the advisory: ${alert.security_advisory.references[0].url}\n` : ''}
-          - Update to ${alert.security_advisory?.patched_versions?.[0] || 'the latest version'}
-          - Run \`go get -u ${alert.dependency?.package?.name}@latest\`
-          
-          `).join('\n')}
-          
-          ### 📦 Current Dependencies
-          ${modules.Deps ? `Found ${modules.Deps.length} dependencies\n` : 'No dependency information available'}
-          
-          ### 🛡️ Best Practices
-          - Regularly update dependencies with \`go get -u\` and \`go mod tidy\`
-          - Review security advisories
-          - Use dependency lockfiles
-          - Enable Dependabot security updates
-          - Set up automated dependency updates`;
-          
-          await github.rest.issues.createComment({
-            ...context.repo,
-            issue_number: context.issue.number,
-            body: comment
-          });
 
   build-image:
     needs: test
