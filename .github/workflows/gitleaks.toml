@@ -6,7 +6,7 @@ tags = ["key", "AWS"]
 
 [[rules]]
 description = "AWS Secret Key"
-regex = '''(?i)aws(.{0,20})?(?-i)['\"][0-9a-zA-Z\/+]{40}['\"]'''
+regex = '''(?i)aws(.{0,20})?['"][0-9a-zA-Z\/+=]{40}['"]'''
 tags = ["key", "AWS"]
 
 [[rules]]
@@ -36,7 +36,7 @@ tags = ["key", "Private"]
 
 [[rules]]
 description = "Jenkins Token"
-regex = '''11ee88c3a7072403d26def2b101f65c084'''
+regex = '''[a-f0-9]{32}'''
 tags = ["key", "Jenkins"]
 
 [[rules]]
