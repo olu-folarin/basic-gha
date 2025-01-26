@@ -41,6 +41,8 @@ jobs:
 
   gitleaks:
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
     steps:
     - uses: actions/checkout@v3
     - name: Install Gitleaks
@@ -48,14 +50,21 @@ jobs:
         curl -sSL https://github.com/zricethezav/gitleaks/releases/download/v8.2.7/gitleaks_8.2.7_linux_x64.tar.gz | tar -xz -C /usr/local/bin gitleaks
     - name: Run Gitleaks
       run: |
-        gitleaks detect --source=codegen --verbose --report-format=json --report-path=gitleaks_results.json --config=.github/workflows/gitleaks.toml --no-git
-        if [ -s gitleaks_results.json ]; then
+        gitleaks detect --source=codegen --verbose --report-format=sarif --report-path=gitleaks_results.sarif --config=.github/workflows/gitleaks.toml --no-git
+        if [ -s gitleaks_results.sarif ]; then
           echo "::warning::Gitleaks found potential secrets"
           echo "SCAN_FAILED=true" >> $GITHUB_ENV
         fi
+    - name: Upload Gitleaks SARIF Report
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: gitleaks_results.sarif
 
   semgrep:
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
     steps:
     - uses: actions/checkout@v3
     - name: Install Semgrep
@@ -65,6 +74,9 @@ jobs:
       run: |
         semgrep --config=.github/workflows/semgrep.yml --json --output=semgrep_results.json codegen/
       continue-on-error: false
+    - name: Convert Semgrep JSON to SARIF
+      run: |
+        semgrep --config=.github/workflows/semgrep.yml --sarif --output=semgrep_results.sarif codegen/
     - name: Log Semgrep Results
       run: |
         cat semgrep_results.json | jq -r '.results[] | "File: \(.path)\nLine: \(.start.line)\nMessage: \(.extra.message)\nSeverity: \(.extra.severity)\n"' || true
@@ -76,6 +88,11 @@ jobs:
           echo "SCAN_FAILED=true" >> $GITHUB_ENV
           exit 1
         fi
+    - name: Upload Semgrep SARIF Report
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: semgrep_results.sarif
 
   dependabot:
     runs-on: ubuntu-latest
