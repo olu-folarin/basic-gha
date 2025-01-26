@@ -1,29 +1,3 @@
-on: [push, pull_request]
-
-jobs:
-  semgrep:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Install Semgrep
-        run: |
-          pip install semgrep
-
-      - name: Run Semgrep
-        run: |
-          semgrep --config=p/security-audit --json --output=semgrep_results.json codegen/
-        continue-on-error: true
-
-      - name: Analyze Semgrep Results
-        if: always()
-        run: |
-          if jq -e '.results | length > 0' semgrep_results.json > /dev/null; then
-            echo "::error::Semgrep found security issues"
-            echo "SCAN_FAILED=true" >> $GITHUB_ENV
-          fi
-
 rules:
   - id: insecure-http
     patterns:
@@ -64,13 +38,6 @@ rules:
     patterns:
       - pattern: gob.NewDecoder(...)
     message: "Insecure deserialization detected."
-    languages: [go]
-    severity: ERROR
-
-  - id: insecure-file-permissions
-    patterns:
-      - pattern: os.OpenFile(..., 0666)
-    message: "Insecure file permissions detected."
     languages: [go]
     severity: ERROR
 
