@@ -1,0 +1,19 @@
+title = "Gitleaks Configuration"
+
+[[rules]]
+id = "aws-access-key"
+regex = '''AKIA[0-9A-Z]{16}'''
+secret_group = 1
+tags = ["key", "AWS"]
+
+[[rules]]
+id = "aws-secret-key"
+regex = '''(?i)aws_secret_access_key['"]?\s*[:=]\s*['"][0-9a-zA-Z/+]{40}['"]'''
+secret_group = 1
+tags = ["key", "AWS"]
+
+[[rules]]
+id = "db-connection-string"
+regex = '''(?i)(postgresql|mysql|mongodb)://[\w]+:[\w]+@'''
+secret_group = 1
+tags = ["db", "connection"]
