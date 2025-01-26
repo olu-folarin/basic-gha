@@ -94,6 +94,8 @@ func main() {
 
     // HTTP client with hardcoded token
     insecureHttpClient()
+
+    // Triggering the pipeline with a minor change
 }
 
 func generateRandomDomain() string {
