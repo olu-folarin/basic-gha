@@ -72,18 +72,15 @@ jobs:
         pip install semgrep
     - name: Run Semgrep
       run: |
-        semgrep --config=.github/workflows/semgrep.yml --json --output=semgrep_results.json codegen/
-      continue-on-error: false
-    - name: Convert Semgrep JSON to SARIF
-      run: |
         semgrep --config=.github/workflows/semgrep.yml --sarif --output=semgrep_results.sarif codegen/
+      continue-on-error: false
     - name: Log Semgrep Results
       run: |
-        cat semgrep_results.json | jq -r '.results[] | "File: \(.path)\nLine: \(.start.line)\nMessage: \(.extra.message)\nSeverity: \(.extra.severity)\n"' || true
+        cat semgrep_results.sarif || echo "SARIF file not found."
     - name: Analyze Semgrep Results
       if: always()
       run: |
-        if jq -e '.results | length > 0' semgrep_results.json > /dev/null; then
+        if jq -e '.runs[0].results | length > 0' semgrep_results.sarif > /dev/null; then
           echo "::error::Semgrep found security issues"
           echo "SCAN_FAILED=true" >> $GITHUB_ENV
           exit 1
