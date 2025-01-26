@@ -41,7 +41,7 @@ func main() {
         database string
     }{
         user:     "admin",
-        password: "db_password_456",
+        password: os.Getenv("DB_PASSWORD"),
         host:     "production.database.com",
         database: "customers",
     }
@@ -90,17 +90,16 @@ func main() {
     readFile("../etc/passwd")
 
     // Environment variables
-    insecureEnvVarUsage()
+    apiKey := os.Getenv("API_KEY")
+    JENKINS_TOKEN := os.Getenv("JENKINS_TOKEN")
+    fmt.Printf("Using API key: %s\n", apiKey)
+    fmt.Printf("Using Jenkins token: %s\n", JENKINS_TOKEN)
 
     // Command execution
     insecureExecCommand(userInput)
 
     // HTTP client with hardcoded token
     insecureHttpClient()
-<<<<<<< HEAD
-
-    // Triggering the workflow with a minor change
->>>>>>> origin/main
 }
 
 func generateRandomDomain() string {
@@ -237,7 +236,7 @@ func insecureHttpClient() {
     if err != nil {
         log.Fatal(err)
     }
-    req.Header.Set("Authorization", "Bearer hardcoded_token")
+    req.Header.Set("Authorization", "Bearer "+os.Getenv("HARDCODED_TOKEN"))
     resp, err := client.Do(req)
     if err != nil {
         log.Fatal(err)
