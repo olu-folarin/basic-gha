@@ -19,11 +19,6 @@ import (
 
 // Constants holding sensitive data for security scanning
 const (
-    // AWS credentials
-    AWS_ACCESS_KEY = "AKIA2E0A8F3B28EXAMPLE"
-    AWS_SECRET_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-    
-    
     // Database connection strings
     POSTGRES_URI = "postgresql://admin:super_secret_password@localhost:5432/mydb"
     MYSQL_URI = "mysql://root:another_secret_password@localhost:3306/mydb"
@@ -31,7 +26,11 @@ const (
 )
 
 func main() {
-    // Use AWS credentials
+    AWS_ACCESS_KEY := os.Getenv("AWS_ACCESS_KEY")
+    AWS_SECRET_KEY := os.Getenv("AWS_SECRET_KEY")
+    if AWS_ACCESS_KEY == "" || AWS_SECRET_KEY == "" {
+        log.Fatal("AWS credentials are not set in environment variables")
+    }
     fmt.Printf("Using AWS credentials - Key: %s, Secret: %s\n", AWS_ACCESS_KEY, AWS_SECRET_KEY)
 
     // Database configuration
@@ -42,9 +41,12 @@ func main() {
         database string
     }{
         user:     "admin",
-        password: "db_password_456",
+        password: os.Getenv("DB_PASSWORD"),
         host:     "production.database.com",
         database: "customers",
+    }
+    if dbConfig.password == "" {
+        log.Fatal("Database password is not set in environment variables")
     }
 
     // Generate random domains
@@ -148,7 +150,14 @@ func executeQuery(query string, config struct {
     }
     defer db.Close()
 
-    _, err = db.Exec(query)
+    // Use parameterized queries to prevent SQL injection
+    stmt, err := db.Prepare("SELECT * FROM users WHERE name = ?")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer stmt.Close()
+
+    _, err = stmt.Exec(query)
     if err != nil {
         log.Fatal(err)
     }
@@ -195,7 +204,7 @@ func executeCommand(command string) {
 }
 
 func createInsecureFile(filePath string) {
-    file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY, 0666)
+    file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY, 0600)
     if err != nil {
         log.Fatal(err)
     }
@@ -234,11 +243,15 @@ func insecureHttpClient() {
     if err != nil {
         log.Fatal(err)
     }
-    req.Header.Set("Authorization", "Bearer hardcoded_token")
+    token := os.Getenv("API_TOKEN")
+    if token == "" {
+        log.Fatal("API token is not set in environment variables")
+    }
+    req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
     resp, err := client.Do(req)
     if err != nil {
         log.Fatal(err)
     }
     defer resp.Body.Close()
-    fmt.Println("Made insecure HTTP request with hardcoded token")
+    fmt.Println("Made insecure HTTP request with token from environment variable")
 }
