@@ -20,8 +20,8 @@ import (
 // Constants holding sensitive data for security scanning
 const (
     // AWS credentials
-    AWS_ACCESS_KEY = os.Getenv("AWS_ACCESS_KEY")
-    AWS_SECRET_KEY = os.Getenv("AWS_SECRET_KEY")
+    // AWS_ACCESS_KEY = os.Getenv("AWS_ACCESS_KEY")
+    // AWS_SECRET_KEY = os.Getenv("AWS_SECRET_KEY")
     
     
     // Database connection strings
@@ -31,7 +31,8 @@ const (
 )
 
 func main() {
-    // Use AWS credentials
+    AWS_ACCESS_KEY := os.Getenv("AWS_ACCESS_KEY")
+    AWS_SECRET_KEY := os.Getenv("AWS_SECRET_KEY")
     fmt.Printf("Using AWS credentials - Key: %s, Secret: %s\n", AWS_ACCESS_KEY, AWS_SECRET_KEY)
 
     // Database configuration
