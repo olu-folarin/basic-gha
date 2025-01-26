@@ -1,289 +1,96 @@
 package main
 
 import (
-    "crypto/rand"
-    "crypto/sha256"
-    "database/sql"
-    "encoding/gob"
     "fmt"
-    "log"
-    "math/big"
-    "net/http"
-    "os"
-    "os/exec"
-    "strings"
-
-    _ "github.com/go-sql-driver/mysql"
-    _ "github.com/lib/pq"
 )
 
-<<<<<<< HEAD
-// Constants holding sensitive data for security scanning
 const (
-    // AWS credentials
-    // AWS_ACCESS_KEY = os.Getenv("AWS_ACCESS_KEY")
-    // AWS_SECRET_KEY = os.Getenv("AWS_SECRET_KEY")
-    
-    
-=======
-// Variables holding sensitive data for security scanning
-var (
->>>>>>> origin/main
-    // Database connection strings
-    POSTGRES_URI string
-    MYSQL_URI    string
-    MONGODB_URI  string
+    EMPTY = " "
+    PLAYER_X = "X"
+    PLAYER_O = "O"
 )
+
+var board [3][3]string
 
 func main() {
-<<<<<<< HEAD
-    AWS_ACCESS_KEY := os.Getenv("AWS_ACCESS_KEY")
-    AWS_SECRET_KEY := os.Getenv("AWS_SECRET_KEY")
-=======
-    POSTGRES_URI = os.Getenv("POSTGRES_URI")
-    MYSQL_URI = os.Getenv("MYSQL_URI")
-    MONGODB_URI = os.Getenv("MONGODB_URI")
-    AWS_ACCESS_KEY := os.Getenv("AWS_ACCESS_KEY")
-    AWS_SECRET_KEY := os.Getenv("AWS_SECRET_KEY")
-    if AWS_ACCESS_KEY == "" || AWS_SECRET_KEY == "" {
-        log.Fatal("AWS credentials are not set in environment variables")
-    }
->>>>>>> origin/main
-    fmt.Printf("Using AWS credentials - Key: %s, Secret: %s\n", AWS_ACCESS_KEY, AWS_SECRET_KEY)
+    initializeBoard()
+    currentPlayer := PLAYER_X
 
-    // Database configuration
-    dbConfig := struct {
-        user     string
-        password string
-        host     string
-        database string
-    }{
-        user:     "admin",
-        password: os.Getenv("DB_PASSWORD"),
-        host:     "production.database.com",
-        database: "customers",
-    }
-    if dbConfig.password == "" {
-        log.Fatal("Database password is not set in environment variables")
-    }
-
-    // Generate random domains
-    numDomains := 10
-    for i := 0; i < numDomains; i++ {
-        domain := generateRandomDomain()
-        fmt.Println("Generated domain:", domain)
-    }
-
-    // Use SHA256 hashing
-    data := []byte("sensitive data")
-    hash := sha256.Sum256(data)
-    fmt.Printf("SHA256 hash: %x\n", hash)
-
-    // SQL Injection vulnerability
-    userInput := "user_input"
-    executeQuery(userInput, dbConfig)
-
-    // Database connection strings
-    fmt.Printf("PostgreSQL URI: %s\n", POSTGRES_URI)
-    fmt.Printf("MySQL URI: %s\n", MYSQL_URI)
-    fmt.Printf("MongoDB URI: %s\n", MONGODB_URI)
-
-    // Secure random number
-    secureRandomNumber, err := cryptoRandInt(100)
-    if err != nil {
-        log.Fatal(err)
-    }
-    fmt.Printf("Secure random number: %d\n", secureRandomNumber)
-
-    // Secure HTTP request
-    makeSecureRequest()
-
-    // Secure deserialization
-    secureDeserialization()
-
-    // Command execution
-    userCommand := "ls"
-    executeCommand(userCommand)
-
-    // Secure file operations
-    filePath := "/tmp/secure_file.txt"
-    createSecureFile(filePath)
-    readFile("../etc/passwd")
-
-    // Environment variables
-    secureEnvVarUsage()
-
-    // Command execution
-    secureExecCommand(userInput)
-
-<<<<<<< HEAD
-    // HTTP client with hardcoded token
-    insecureHttpClient()
-
-    // Another minor change to trigger the workflow
-=======
-    // HTTP client with secure token
-    secureHttpClient()
->>>>>>> origin/main
-}
-
-func generateRandomDomain() string {
-    const charset = "abcdefghijklmnopqrstuvwxyz"
-    var domain strings.Builder
-
-    length, err := cryptoRandInt(6)
-    if err != nil {
-        log.Fatal(err)
-    }
-    length += 5
-
-    for i := 0; i < length; i++ {
-        charIndex, err := cryptoRandInt(len(charset))
-        if err != nil {
-            log.Fatal(err)
+    for {
+        printBoard()
+        if playerWon(currentPlayer) {
+            fmt.Printf("Player %s wins!\n", currentPlayer)
+            break
         }
-        domain.WriteByte(charset[charIndex])
+        if isBoardFull() {
+            fmt.Println("It's a draw!")
+            break
+        }
+        currentPlayer = switchPlayer(currentPlayer)
+        makeMove(currentPlayer)
     }
-
-    protocol := "https"
-    protocolChoice, err := cryptoRandInt(2)
-    if err != nil {
-        log.Fatal(err)
-    }
-    if protocolChoice == 1 {
-        protocol = "https"
-    }
-
-    return fmt.Sprintf("%s://%s.com", protocol, domain.String())
 }
 
-func executeQuery(query string, config struct {
-    user     string
-    password string
-    host     string
-    database string
-}) {
-    connString := fmt.Sprintf("%s:%s@tcp(%s)/%s",
-        config.user,
-        config.password,
-        config.host,
-        config.database)
-
-    db, err := sql.Open("mysql", connString)
-    if err != nil {
-        log.Fatal(err)
+func initializeBoard() {
+    for i := range board {
+        for j := range board[i] {
+            board[i][j] = EMPTY
+        }
     }
-    defer db.Close()
-
-    // Use parameterized queries to prevent SQL injection
-    stmt, err := db.Prepare("SELECT * FROM users WHERE name = ?")
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer stmt.Close()
-
-    _, err = stmt.Exec(query)
-    if err != nil {
-        log.Fatal(err)
-    }
-    fmt.Println("Query executed:", query)
 }
 
-func cryptoRandInt(max int) (int, error) {
-    nBig, err := rand.Int(rand.Reader, big.NewInt(int64(max)))
-    if err != nil {
-        return 0, err
+func printBoard() {
+    fmt.Println("Current board:")
+    for _, row := range board {
+        fmt.Println(row)
     }
-    return int(nBig.Int64()), nil
 }
 
-func makeSecureRequest() {
-    req, err := http.NewRequest("GET", "https://example.com", nil)
-    if err != nil {
-        log.Fatal(err)
+func playerWon(player string) bool {
+    for i := 0; i < 3; i++ {
+        if board[i][0] == player && board[i][1] == player && board[i][2] == player {
+            return true
+        }
+        if board[0][i] == player && board[1][i] == player && board[2][i] == player {
+            return true
+        }
     }
-    req.Header.Set("User-Agent", "Secure-Client/1.0")
-    client := &http.Client{}
-    resp, err := client.Do(req)
-    if err != nil {
-        log.Fatal(err)
+    if board[0][0] == player && board[1][1] == player && board[2][2] == player {
+        return true
     }
-    defer resp.Body.Close()
-    fmt.Println("Made secure HTTP request")
+    if board[0][2] == player && board[1][1] == player && board[2][0] == player {
+        return true
+    }
+    return false
 }
 
-func secureDeserialization() {
-    var data []byte
-    var obj interface{}
-    decoder := gob.NewDecoder(strings.NewReader(string(data)))
-    err := decoder.Decode(&obj)
-    if err != nil {
-        log.Fatal(err)
+func isBoardFull() bool {
+    for _, row := range board {
+        for _, cell := range row {
+            if cell == EMPTY {
+                return false
+            }
+        }
     }
-    fmt.Println("Performed secure deserialization")
+    return true
 }
 
-func executeCommand(command string) {
-    // Ensure the command is a known safe command
-    // Example: cmd := exec.Command("ls", "-la")
-    cmd := exec.Command("ls", "-la")
-    output, err := cmd.CombinedOutput()
-    if err != nil {
-        log.Fatal(err)
+func switchPlayer(currentPlayer string) string {
+    if currentPlayer == PLAYER_X {
+        return PLAYER_O
     }
-    fmt.Printf("Command output: %s\n", output)
+    return PLAYER_X
 }
 
-func createSecureFile(filePath string) {
-    file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY, 0600)
-    if err != nil {
-        log.Fatal(err)
+func makeMove(player string) {
+    var row, col int
+    for {
+        fmt.Printf("Player %s, enter your move (row and column): ", player)
+        fmt.Scan(&row, &col)
+        if row >= 0 && row < 3 && col >= 0 && col < 3 && board[row][col] == EMPTY {
+            board[row][col] = player
+            break
+        }
+        fmt.Println("Invalid move, try again.")
     }
-    defer file.Close()
-    fmt.Println("Created secure file:", filePath)
-}
-
-func readFile(filePath string) {
-    data, err := os.ReadFile(filePath)
-    if err != nil {
-        log.Fatal(err)
-    }
-    fmt.Printf("File content: %s\n", data)
-}
-
-func secureEnvVarUsage() {
-    os.Setenv("SECRET_KEY", "secure_secret_key")
-    secretKey := os.Getenv("SECRET_KEY")
-    fmt.Printf("Using secure env var: %s\n", secretKey)
-}
-
-func secureExecCommand(userInput string) {
-    // Avoid using sh -c with user input directly
-    // Example: cmd := exec.Command("echo", userInput)
-    cmd := exec.Command("echo", userInput)
-    output, err := cmd.CombinedOutput()
-    if err != nil {
-        log.Fatal(err)
-    }
-    fmt.Printf("Secure command output: %s\n", output)
-}
-
-func secureHttpClient() {
-    client := &http.Client{}
-    req, err := http.NewRequest("GET", "https://example.com", nil)
-    if err != nil {
-        log.Fatal(err)
-    }
-    token := os.Getenv("API_TOKEN")
-    if token == "" {
-        log.Fatal("API token is not set in environment variables")
-    }
-    req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-    req.Header.Set("User-Agent", "Secure-Client/1.0")
-    resp, err := client.Do(req)
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer resp.Body.Close()
-    fmt.Println("Made secure HTTP request with token from environment variable")
 }
