@@ -20,8 +20,8 @@ import (
 // Constants holding sensitive data for security scanning
 const (
     // AWS credentials
-    AWS_ACCESS_KEY = "AKIA2E0A8F3B28EXAMPLE"
-    AWS_SECRET_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    AWS_ACCESS_KEY = os.Getenv("AWS_ACCESS_KEY")
+    AWS_SECRET_KEY = os.Getenv("AWS_SECRET_KEY")
     
     
     // Database connection strings
