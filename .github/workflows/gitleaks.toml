@@ -43,5 +43,3 @@ tags = ["key", "Jenkins"]
 description = "JWT"
 regex = '''eyJ[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+'''
 tags = ["key", "JWT"]
-
-# Add more rules as needed

@@ -17,8 +17,18 @@ import (
     _ "github.com/lib/pq"
 )
 
+<<<<<<< HEAD
+// Constants holding sensitive data for security scanning
+const (
+    // AWS credentials
+    // AWS_ACCESS_KEY = os.Getenv("AWS_ACCESS_KEY")
+    // AWS_SECRET_KEY = os.Getenv("AWS_SECRET_KEY")
+    
+    
+=======
 // Variables holding sensitive data for security scanning
 var (
+>>>>>>> origin/main
     // Database connection strings
     POSTGRES_URI string
     MYSQL_URI    string
@@ -26,6 +36,10 @@ var (
 )
 
 func main() {
+<<<<<<< HEAD
+    AWS_ACCESS_KEY := os.Getenv("AWS_ACCESS_KEY")
+    AWS_SECRET_KEY := os.Getenv("AWS_SECRET_KEY")
+=======
     POSTGRES_URI = os.Getenv("POSTGRES_URI")
     MYSQL_URI = os.Getenv("MYSQL_URI")
     MONGODB_URI = os.Getenv("MONGODB_URI")
@@ -34,6 +48,7 @@ func main() {
     if AWS_ACCESS_KEY == "" || AWS_SECRET_KEY == "" {
         log.Fatal("AWS credentials are not set in environment variables")
     }
+>>>>>>> origin/main
     fmt.Printf("Using AWS credentials - Key: %s, Secret: %s\n", AWS_ACCESS_KEY, AWS_SECRET_KEY)
 
     // Database configuration
@@ -101,8 +116,15 @@ func main() {
     // Command execution
     secureExecCommand(userInput)
 
+<<<<<<< HEAD
+    // HTTP client with hardcoded token
+    insecureHttpClient()
+
+    // Another minor change to trigger the workflow
+=======
     // HTTP client with secure token
     secureHttpClient()
+>>>>>>> origin/main
 }
 
 func generateRandomDomain() string {
