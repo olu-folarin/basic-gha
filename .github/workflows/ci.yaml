@@ -52,6 +52,7 @@ jobs:
         if [ -s gitleaks_results.json ]; then
           echo "::warning::Gitleaks found potential secrets"
           echo "SCAN_FAILED=true" >> $GITHUB_ENV
+        fi
 
   semgrep:
     runs-on: ubuntu-latest
@@ -74,6 +75,7 @@ jobs:
           echo "::error::Semgrep found security issues"
           echo "SCAN_FAILED=true" >> $GITHUB_ENV
           exit 1
+        fi
 
   dependabot:
     runs-on: ubuntu-latest
