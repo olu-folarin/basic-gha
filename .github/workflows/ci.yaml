@@ -66,13 +66,14 @@ jobs:
       continue-on-error: true
     - name: Log Semgrep Results
       run: |
-        cat semgrep_results.json
+        cat semgrep_results.json | jq -r '.results[] | "File: \(.path)\nLine: \(.start.line)\nMessage: \(.extra.message)\nSeverity: \(.extra.severity)\n"' || true
     - name: Analyze Semgrep Results
       if: always()
       run: |
         if jq -e '.results | length > 0' semgrep_results.json > /dev/null; then
           echo "::error::Semgrep found security issues"
           echo "SCAN_FAILED=true" >> $GITHUB_ENV
+          exit 1
         fi
 
   dependabot:
