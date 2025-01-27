@@ -8,7 +8,6 @@ const (
     EMPTY = " "
     PLAYER_X = "X"
     PLAYER_O = "O"
-    SECRET_KEY = "supersecretkey123"  // Introduced hardcoded secret for testing
 )
 
 var board [3][3]string
@@ -16,7 +15,7 @@ var board [3][3]string
 func main() {
     initializeBoard()
     currentPlayer := PLAYER_X
-    fmt.Println("Welcome to Tic Tac Toe!")  // Added welcome message
+    fmt.Println("Welcome to Tic Tac Toe!")  
 
     for {
         printBoard()
