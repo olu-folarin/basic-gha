@@ -9,6 +9,8 @@ on:
   pull_request:
     branches:
       - main
+  repository_dispatch:
+    types: [dependabot]
 
 env:
   GITHUB_WORKSPACE: ${{ github.workspace }}
