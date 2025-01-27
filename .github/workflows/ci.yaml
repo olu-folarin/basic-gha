@@ -15,6 +15,7 @@ env:
   ECR_REPOSITORY: test-push-image
   IMAGE_TAG: ${{ github.sha }}
   CODEGEN_DIR: codegen
+  GITHUB_TOKEN: ${{ secrets.PAT_FOR_WORKFLOW }}
 
 permissions:
   contents: read
@@ -100,7 +101,7 @@ jobs:
         go-version: '1.22.7'
     - name: Get Dependabot alerts
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.PAT_FOR_WORKFLOW }}
       run: |
         response=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
           -H "Accept: application/vnd.github.v3+json" \
