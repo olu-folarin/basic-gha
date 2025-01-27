@@ -107,17 +107,16 @@ jobs:
           -H "Accept: application/vnd.github.v3+json" \
           "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
         
-        if echo "$response" | jq -e 'has("message")' > /dev/null; then
+        if echo "$response" | jq -e 'type == "object" and has("message")' > /dev/null; then
           echo "::warning::Error accessing Dependabot alerts: $(echo "$response" | jq -r '.message')"
           echo "[]" > dependabot_alerts.json
+        elif echo "$response" | jq -e 'type == "array" and length > 0' > /dev/null; then
+          echo "::error::Found Dependabot security alerts"
+          echo "SCAN_FAILED=true" >> $GITHUB_ENV
+          echo "$response" > dependabot_alerts.json
+          exit 1
         else
           echo "$response" > dependabot_alerts.json
-          
-          if echo "$response" | jq -e 'length > 0' > /dev/null; then
-            echo "::error::Found Dependabot security alerts"
-            echo "SCAN_FAILED=true" >> $GITHUB_ENV
-            exit 1
-          fi
         fi
     - name: Analyze dependencies
       working-directory: ${{ env.CODEGEN_DIR }}
