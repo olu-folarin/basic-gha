@@ -100,24 +100,22 @@ jobs:
   build-image:
     needs: test
     runs-on: ubuntu-latest
-    outputs:
-      image_name: my-local-image:latest
     steps:
     - uses: actions/checkout@v3
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v1
+    - name: Log in to Amazon ECR
+      env:
+        AWS_REGION: ${{ secrets.AWS_REGION }}
+      run: |
+        aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com
     - name: Build Docker image
       run: |
-        docker build -t my-local-image:latest -f codegen/Dockerfile codegen
-    - name: Save image name
-      id: save-image-name
-      run: echo "IMAGE_NAME=my-local-image:latest" >> $GITHUB_ENV
+        docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest -f codegen/Dockerfile codegen
 
   trivy:
     needs: build-image
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
     - uses: actions/checkout@v3
     - name: Install Trivy
@@ -126,4 +124,19 @@ jobs:
         sudo dpkg -i trivy.deb
     - name: Scan Docker image
       run: |
-        trivy image --severity HIGH,CRITICAL --exit-code 1 my-local-image:latest
+        trivy image --severity HIGH,CRITICAL --exit-code 1 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
+
+  push-to-ecr:
+    needs: trivy
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+    - uses: actions/checkout@v3
+    - name: Log in to Amazon ECR
+      env:
+        AWS_REGION: ${{ secrets.AWS_REGION }}
+      run: |
+        aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_REGION.amazonaws.com
+    - name: Push Docker image to ECR
+      run: |
+        docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
