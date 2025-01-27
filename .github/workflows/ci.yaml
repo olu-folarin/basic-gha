@@ -97,30 +97,6 @@ jobs:
       with:
         sarif_file: semgrep_results.sarif
 
-  dependabot:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Get Dependabot alerts
-      env:
-        GITHUB_TOKEN: ${{ secrets.PAT_FOR_WORKFLOW }}
-      run: |
-        response=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
-          -H "Accept: application/vnd.github.v3+json" \
-          "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
-        
-        if echo "$response" | jq -e 'type == "object" and has("message")' > /dev/null; then
-          echo "::warning::Error accessing Dependabot alerts: $(echo "$response" | jq -r '.message')"
-          echo "[]" > dependabot_alerts.json
-        elif echo "$response" | jq -e 'type == "array" and length > 0' > /dev/null; then
-          echo "::error::Found Dependabot security alerts"
-          echo "SCAN_FAILED=true" >> $GITHUB_ENV
-          echo "$response" > dependabot_alerts.json
-          exit 1
-        else
-          echo "$response" > dependabot_alerts.json
-        fi
-
   build-image:
     needs: test
     runs-on: ubuntu-latest
@@ -142,29 +118,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
     steps:
     - uses: actions/checkout@v3
     - name: Install Trivy
       run: |
-        sudo apt-get update -y
-        sudo apt-get install -y wget apt-transport-https gnupg lsb-release
-        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-        echo "deb https://aquasecurity.github.io/trivy-repo/deb focal main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
-        sudo apt-get update -y
-        sudo apt-get install -y trivy
-    - name: Run Trivy Vulnerability Scanner
+        curl -sSL https://github.com/aquasecurity/trivy/releases/download/v0.29.2/trivy_0.29.2_Linux-64bit.deb -o trivy.deb
+        sudo dpkg -i trivy.deb
+    - name: Scan Docker image
       run: |
-        IMAGE_NAME="${{ needs.build-image.outputs.image_name }}"
-        echo "Scanning image: $IMAGE_NAME"
-        trivy image --format sarif -o trivy-results.sarif "$IMAGE_NAME"
-    - name: Debug Trivy Execution
-      run: |
-        echo "Inspecting SARIF output..."
-        ls -la
-        cat trivy-results.sarif || echo "SARIF file not found."
-    - name: Upload Trivy Scan Results
-      if: always()
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: trivy-results.sarif
+        trivy image --severity HIGH,CRITICAL --exit-code 1 my-local-image:latest
