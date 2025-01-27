@@ -15,6 +15,7 @@ var board [3][3]string
 func main() {
     initializeBoard()
     currentPlayer := PLAYER_X
+    fmt.Println("Welcome to Tic Tac Toe!")  
 
     for {
         printBoard()

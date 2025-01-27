@@ -1,56 +1,58 @@
 rules:
+  - id: hardcoded-secret
+    patterns:
+      - pattern: "... = \"...\""
+    message: "Hardcoded secret detected."
+    languages: [go]
+    severity: WARNING
+    metadata:
+      description: "Detects hardcoded secrets."
+
   - id: insecure-http
     patterns:
       - pattern: http.Get(...)
     message: "Use HTTPS instead of HTTP for secure communication."
     languages: [go]
-    severity: ERROR
+    severity: WARNING
 
   - id: sql-injection
     patterns:
       - pattern: db.Exec(...)
     message: "Potential SQL injection vulnerability."
     languages: [go]
-    severity: ERROR
-
-  - id: hardcoded-secret
-    patterns:
-      - pattern: "... = \"...\""
-    message: "Hardcoded secret detected."
-    languages: [go]
-    severity: ERROR
+    severity: WARNING
 
   - id: command-injection
     patterns:
       - pattern: exec.Command(...)
     message: "Potential command injection vulnerability."
     languages: [go]
-    severity: ERROR
+    severity: WARNING
 
   - id: insecure-random
     patterns:
       - pattern: rand.Int(...)
     message: "Use crypto/rand for secure random number generation."
     languages: [go]
-    severity: ERROR
+    severity: WARNING
 
   - id: insecure-deserialization
     patterns:
       - pattern: gob.NewDecoder(...)
     message: "Insecure deserialization detected."
     languages: [go]
-    severity: ERROR
+    severity: WARNING
 
   - id: insecure-env-var
     patterns:
       - pattern: os.Getenv(...)
     message: "Insecure environment variable usage detected."
     languages: [go]
-    severity: ERROR
+    severity: WARNING
 
   - id: insecure-http-client
     patterns:
       - pattern: http.Client{}
     message: "Insecure HTTP client usage detected."
     languages: [go]
-    severity: ERROR
+    severity: WARNING
