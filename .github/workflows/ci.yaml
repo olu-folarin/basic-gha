@@ -27,118 +27,104 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
-        with:
-          go-version: '1.22.7'
-      - name: Run tests
-        working-directory: ${{ env.CODEGEN_DIR }}
-        run: |
-          if [ ! -f go.mod ]; then
-            go mod init example.com/m
-          fi
-          go mod tidy
-          go test -v ./...
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v4
+      with:
+        go-version: '1.22.7'
+    - name: Update Dependencies
+      working-directory: ${{ env.CODEGEN_DIR }}
+      run: go mod tidy
+    - name: Build Project
+      working-directory: ${{ env.CODEGEN_DIR }}
+      run: go build
+    - name: Run tests
+      working-directory: ${{ env.CODEGEN_DIR }}
+      run: go test -v ./...
 
   gitleaks:
     runs-on: ubuntu-latest
     permissions:
       security-events: write
     steps:
-      - uses: actions/checkout@v3
-      - name: Install Gitleaks
-        run: |
-          curl -sSL https://github.com/zricethezav/gitleaks/releases/download/v8.2.7/gitleaks_8.2.7_linux_x64.tar.gz | tar -xz -C /usr/local/bin gitleaks
-      - name: Run Gitleaks
-        run: |
-          gitleaks detect --source=codegen --verbose --report-format=sarif --report-path=gitleaks_results.sarif --config=.github/workflows/gitleaks.toml --no-git
-          if [ -s gitleaks_results.sarif ]; then
-            echo "::warning::Gitleaks found potential secrets"
-            echo "SCAN_FAILED=true" >> $GITHUB_ENV
-          fi
-      - name: Upload Gitleaks SARIF Report
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: gitleaks_results.sarif
+    - uses: actions/checkout@v3
+    - name: Install Gitleaks
+      run: |
+        curl -sSL https://github.com/zricethezav/gitleaks/releases/download/v8.2.7/gitleaks_8.2.7_linux_x64.tar.gz | tar -xz -C /usr/local/bin gitleaks
+    - name: Run Gitleaks
+      run: |
+        gitleaks detect --source=codegen --verbose --report-format=sarif --report-path=gitleaks_results.sarif --config=.github/workflows/gitleaks.toml --no-git
+        if [ -s gitleaks_results.sarif ]; then
+          echo "::warning::Gitleaks found potential secrets"
+          echo "SCAN_FAILED=true" >> $GITHUB_ENV
+        fi
+    - name: Upload Gitleaks SARIF Report
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: gitleaks_results.sarif
 
   semgrep:
     runs-on: ubuntu-latest
     permissions:
       security-events: write
     steps:
-      - uses: actions/checkout@v3
-      - name: Install Semgrep
-        run: |
-          pip install semgrep
-      - name: Run Semgrep
-        run: |
-          semgrep --config=.github/workflows/semgrep.yml --sarif --output=semgrep_results.sarif codegen/
-        continue-on-error: false
-      - name: Log Semgrep Results
-        run: |
-          cat semgrep_results.sarif || echo "SARIF file not found."
-      - name: Analyze Semgrep Results
-        if: always()
-        run: |
-          if jq -e '.runs[0].results | length > 0' semgrep_results.sarif > /dev/null; then
-            echo "::error::Semgrep found security issues"
-            echo "SCAN_FAILED=true" >> $GITHUB_ENV
-            exit 1
-          fi
-      - name: Upload Semgrep SARIF Report
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: semgrep_results.sarif
+    - uses: actions/checkout@v3
+    - name: Install Semgrep
+      run: |
+        pip install semgrep
+    - name: Run Semgrep
+      run: |
+        semgrep --config=.github/workflows/semgrep.yml --sarif --output=semgrep_results.sarif codegen/
+      continue-on-error: false
+    - name: Log Semgrep Results
+      run: |
+        cat semgrep_results.sarif || echo "SARIF file not found."
+    - name: Analyze Semgrep Results
+      if: always()
+      run: |
+        if jq -e '.runs[0].results | length > 0' semgrep_results.sarif > /dev/null; then
+          echo "::error::Semgrep found security issues"
+          echo "SCAN_FAILED=true" >> $GITHUB_ENV
+          exit 1
+        fi
+    - name: Upload Semgrep SARIF Report
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: semgrep_results.sarif
 
   dependabot:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
-        with:
-          go-version: '1.22.7'
-      - name: Initialize go.mod (if not exists)
-        working-directory: ${{ env.CODEGEN_DIR }}
-        run: |
-          if [ ! -f go.mod ]; then
-            go mod init example.com/m
-          fi
-      - name: Add vulnerable dependency
-        working-directory: ${{ env.CODEGEN_DIR }}
-        run: |
-          go get github.com/dgrijalva/jwt-go@v3.2.0+incompatible
-      - name: Run go mod tidy
-        working-directory: ${{ env.CODEGEN_DIR }}
-        run: |
-          go mod tidy
-      - name: Analyze dependencies
-        working-directory: ${{ env.CODEGEN_DIR }}
-        run: |
-          go mod download
-          go list -json -m all > ../go_modules.json
-      - name: Get Dependabot alerts
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_FOR_WORKFLOW }}
-        run: |
-          response=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
-          
-          if echo "$response" | jq -e 'type == "object" and has("message")' > /dev/null; then
-            echo "::warning::Error accessing Dependabot alerts: $(echo "$response" | jq -r '.message')"
-            echo "[]" > dependabot_alerts.json
-          elif echo "$response" | jq -e 'type == "array" and length > 0' > /dev/null; then
-            echo "::error::Found Dependabot security alerts"
-            echo "$response" > dependabot_alerts.json
-            exit 1
-          else
-            echo "$response" > dependabot_alerts.json
-          fi
-      - name: Log Dependabot Alerts
-        run: |
-          cat dependabot_alerts.json
+    - uses: actions/checkout@v3
+    - name: Get Dependabot alerts
+      env:
+        GITHUB_TOKEN: ${{ secrets.PAT_FOR_WORKFLOW }}
+      run: |
+        response=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github.v3+json" \
+          "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
+        
+        if echo "$response" | jq -e 'type == "object" and has("message")' > /dev/null; then
+          echo "::warning::Error accessing Dependabot alerts: $(echo "$response" | jq -r '.message')"
+          echo "[]" > dependabot_alerts.json
+        elif echo "$response" | jq -e 'type == "array" and length > 0' > /dev/null; then
+          echo "::error::Found Dependabot security alerts"
+          echo "SCAN_FAILED=true" >> $GITHUB_ENV
+          echo "$response" > dependabot_alerts.json
+          exit 1
+        else
+          echo "$response" > dependabot_alerts.json
+        fi
+    - name: Analyze dependencies
+      working-directory: ${{ env.CODEGEN_DIR }}
+      run: |
+        if [ ! -f go.mod ]; then
+          go mod init example.com/m
+        fi
+        go mod tidy
+        go mod download
+        go list -json -m all > ../go_modules.json
 
   build-image:
     needs: test
@@ -146,15 +132,15 @@ jobs:
     outputs:
       image_name: my-local-image:latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-      - name: Build Docker image
-        run: |
-          docker build -t my-local-image:latest -f codegen/Dockerfile codegen
-      - name: Save image name
-        id: save-image-name
-        run: echo "IMAGE_NAME=my-local-image:latest" >> $GITHUB_ENV
+    - uses: actions/checkout@v3
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+    - name: Build Docker image
+      run: |
+        docker build -t my-local-image:latest -f codegen/Dockerfile codegen
+    - name: Save image name
+      id: save-image-name
+      run: echo "IMAGE_NAME=my-local-image:latest" >> $GITHUB_ENV
 
   trivy:
     needs: build-image
@@ -163,35 +149,27 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v3
-      - name: Install Trivy
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y wget apt-transport-https gnupg lsb-release
-          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-          echo "deb https://aquasecurity.github.io/trivy-repo/deb focal main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
-          sudo apt-get update -y
-          sudo apt-get install -y trivy
-      - name: Run Trivy Vulnerability Scanner
-        run: |
-          IMAGE_NAME="${{ needs.build-image.outputs.image_name }}"
-          echo "Scanning image: $IMAGE_NAME"
-          trivy image --format sarif -o trivy-results.sarif "$IMAGE_NAME"
-      - name: Debug Trivy Execution
-        run: |
-          echo "Inspecting SARIF output..."
-          ls -la
-          cat trivy-results.sarif || echo "SARIF file not found."
-      - name: Upload Trivy Scan Results
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-results.sarif
-
-  fail-if-scan-failed:
-    runs-on: ubuntu-latest
-    needs: [gitleaks, semgrep, dependabot]
-    steps:
-      - name: Fail workflow if any scan failed
-        if: env.SCAN_FAILED == 'true'
-        run: exit 1
+    - uses: actions/checkout@v3
+    - name: Install Trivy
+      run: |
+        sudo apt-get update -y
+        sudo apt-get install -y wget apt-transport-https gnupg lsb-release
+        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+        echo "deb https://aquasecurity.github.io/trivy-repo/deb focal main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+        sudo apt-get update -y
+        sudo apt-get install -y trivy
+    - name: Run Trivy Vulnerability Scanner
+      run: |
+        IMAGE_NAME="${{ needs.build-image.outputs.image_name }}"
+        echo "Scanning image: $IMAGE_NAME"
+        trivy image --format sarif -o trivy-results.sarif "$IMAGE_NAME"
+    - name: Debug Trivy Execution
+      run: |
+        echo "Inspecting SARIF output..."
+        ls -la
+        cat trivy-results.sarif || echo "SARIF file not found."
+    - name: Upload Trivy Scan Results
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: trivy-results.sarif
