@@ -1,6 +1,8 @@
-name: CI Pipeline - Test Change
+name: CI Pipeline
 
 on:
+  schedule:
+    - cron: '0 0 * * 1'  # Weekly on Monday
   push:
     branches:
       - main
@@ -116,15 +118,6 @@ jobs:
         else
           echo "$response" > dependabot_alerts.json
         fi
-    - name: Analyze dependencies
-      working-directory: ${{ env.CODEGEN_DIR }}
-      run: |
-        if [ ! -f go.mod ]; then
-          go mod init example.com/m
-        fi
-        go mod tidy
-        go mod download
-        go list -json -m all > ../go_modules.json
 
   build-image:
     needs: test
