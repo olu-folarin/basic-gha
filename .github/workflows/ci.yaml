@@ -117,6 +117,7 @@ jobs:
             echo "SCAN_FAILED=true" >> $GITHUB_ENV
             exit 1
           fi
+        fi
     - name: Analyze dependencies
       working-directory: ${{ env.CODEGEN_DIR }}
       run: |
