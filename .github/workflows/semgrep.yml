@@ -5,11 +5,8 @@ rules:
     message: "Hardcoded secret detected."
     languages: [go]
     severity: WARNING
-    paths:
-      exclude:
-        - "codegen/main.go"
     metadata:
-      description: "Detects hardcoded secrets but excludes game constants."
+      description: "Detects hardcoded secrets."
 
   - id: insecure-http
     patterns:
