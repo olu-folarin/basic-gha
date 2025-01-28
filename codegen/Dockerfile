@@ -12,7 +12,7 @@ RUN go mod download
 COPY . .
 
 # Build the Go application
-RUN go build -o main ./codegen/vulnerable.go 
+RUN go build -o main vulnerable.go
 
 # Use a minimal base image for the final image 
 FROM alpine:latest
