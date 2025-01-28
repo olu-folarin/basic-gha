@@ -98,8 +98,9 @@ jobs:
         sarif_file: semgrep_results.sarif
 
   build-image:
-    needs: test
     runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.build.outputs.image_tag }}
     steps:
     - uses: actions/checkout@v3
     - name: Set up Docker Buildx
@@ -114,33 +115,24 @@ jobs:
       run: |
         aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
     - name: Build Docker image
+      id: build
       run: |
-        docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest -f codegen/Dockerfile codegen
+        IMAGE_TAG="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest"
+        docker build -t $IMAGE_TAG -f codegen/Dockerfile codegen
+        echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
 
   trivy:
     needs: build-image
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
-    - name: Log in to Amazon ECR
-      run: |
-        aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-    - name: Pull Docker image
-      run: |
-        docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
     - name: Install Trivy
       run: |
         curl -sSL https://github.com/aquasecurity/trivy/releases/download/v0.29.2/trivy_0.29.2_Linux-64bit.deb -o trivy.deb
         sudo dpkg -i trivy.deb
     - name: Scan Docker image
       run: |
-        trivy image --severity HIGH,CRITICAL --exit-code 1 ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
+        trivy image --severity HIGH,CRITICAL --exit-code 1 ${{ needs.build-image.outputs.image_tag }}
 
   push-to-ecr:
     needs: trivy
@@ -159,4 +151,4 @@ jobs:
         aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
     - name: Push Docker image to ECR
       run: |
-        docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
+        docker push ${{ needs.build-image.outputs.image_tag }}
