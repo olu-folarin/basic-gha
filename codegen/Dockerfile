@@ -4,13 +4,11 @@ FROM golang:1.22.1-alpine3.19 as builder
 # Set the working directory inside the container
 WORKDIR /app
 
-# Copy the Go modules manifests into the container
+# Copy only dependency files first
 COPY go.mod go.sum ./
+RUN go mod download
 
-# Download the Go modules for the application
-RUN go mod download 
-
-# Copy the source code into the container
+# Copy the rest of the source code
 COPY . .
 
 # Build the Go application
@@ -23,10 +21,7 @@ FROM alpine:latest
 WORKDIR /root/
 
 # Copy the binary from the builder stage into the final image 
-COPY --from=builder /app/main . 
-
-# Expose the application port on the container
-EXPOSE 8080
+COPY --from=builder /app/main .
 
 # Command to run the application when the container starts
 CMD ["./main"] 
