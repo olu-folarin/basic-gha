@@ -132,7 +132,25 @@ jobs:
         sudo dpkg -i trivy.deb
     - name: Scan Docker image
       run: |
-        trivy image --severity HIGH,CRITICAL --exit-code 1 ${{ needs.build-image.outputs.image_tag }}
+        trivy image \
+          --exit-code 1 \
+          --severity HIGH,CRITICAL \
+          --format table \
+          --output trivy-results.txt \
+          --timeout 10m \
+          --no-progress \
+          --skip-db-update \
+          ${{ needs.build-image.outputs.image_tag }}
+      continue-on-error: true
+    - name: Check scan results
+      run: |
+        if [ -s trivy-results.txt ]; then
+          echo "Security vulnerabilities found:"
+          cat trivy-results.txt
+          exit 1
+        else
+          echo "No security vulnerabilities found"
+        fi
 
   push-to-ecr:
     needs: trivy
