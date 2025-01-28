@@ -1,5 +1,5 @@
 # Use the official Golang image as the base image for the build stage
-FROM golang:1.22.7-alpine as builder 
+FROM golang:1.22.1-alpine3.19 as builder 
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -14,7 +14,7 @@ RUN go mod download
 COPY . .
 
 # Build the Go application
-RUN go build -o main . 
+RUN go build -o main ./codegen/vulnerable.go 
 
 # Use a minimal base image for the final image 
 FROM alpine:latest
