@@ -8,11 +8,18 @@ import (
     "golang.org/x/text/encoding/unicode"
 )
 
+// Game board markers
+const (
+    BoardEmpty = " "
+    BoardX     = "X"
+    BoardO     = "O"
+)
+
 var board [3][3]string
 
 func main() {
     // Validate environment variables
-    if err := ValidateEnv(); err != nil {
+    if err := validateEnv(); err != nil {
         fmt.Printf("Configuration error: %v\n", err)
         os.Exit(1)
     }
@@ -33,13 +40,11 @@ func main() {
         return
     }
 
-    // Initialize game
     initializeBoard()
     currentPlayer := BoardX
     fmt.Println("Welcome to Tic Tac Toe!")
     fmt.Println("Let's start the game!")
 
-    // Game loop
     for {
         printBoard()
         if playerWon(currentPlayer) {
@@ -56,6 +61,26 @@ func main() {
             continue
         }
     }
+}
+
+func validateEnv() error {
+    secretKey := os.Getenv("JWT_SECRET_KEY")
+    if secretKey == "" {
+        return fmt.Errorf("JWT_SECRET_KEY is not set")
+    }
+    if len(secretKey) < 32 {
+        return fmt.Errorf("JWT_SECRET_KEY must be at least 32 characters")
+    }
+
+    userRole := os.Getenv("USER_ROLE")
+    if userRole == "" {
+        return fmt.Errorf("USER_ROLE is not set")
+    }
+    if userRole != "admin" && userRole != "user" {
+        return fmt.Errorf("USER_ROLE must be either 'admin' or 'user'")
+    }
+
+    return nil
 }
 
 func generateSecureToken() (string, error) {
