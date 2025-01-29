@@ -1,17 +1,26 @@
 rules:
   - id: hardcoded-secret
-    pattern: "... = \"...\""
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $X := "..."
+          - pattern: |
+              var $X = "..."
+          - pattern: |
+              const $X = "..."
     message: "Hardcoded secret detected."
     languages: [go]
     severity: WARNING
     patterns-not:
-      - pattern: "... = \" \""
-      - pattern: "... = \"X\""
-      - pattern: "... = \"O\""
-      - pattern: "... = \"JWT_SECRET_KEY\""
-      - pattern: "... = \"USER_ROLE\""
-      - pattern: "... = \"admin\""
-      - pattern: "... = \"user\""
+      - pattern-regex: '(Board|Player)[A-Za-z]+ = "[ XO]"'
+      - pattern: |
+          ... = "JWT_SECRET_KEY"
+      - pattern: |
+          ... = "USER_ROLE"
+      - pattern: |
+          ... = "admin"
+      - pattern: |
+          ... = "user"
 
   - id: insecure-http
     pattern: http.Get(...)
