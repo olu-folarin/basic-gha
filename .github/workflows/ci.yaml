@@ -124,6 +124,9 @@ jobs:
         cd codegen
         FULL_IMAGE_TAG="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
         docker build -t ${FULL_IMAGE_TAG} .
+        # Debug output
+        echo "Full image tag: ${FULL_IMAGE_TAG}"
+        # Set the output with explicit quotes
         echo "image_tag=${FULL_IMAGE_TAG}" >> $GITHUB_OUTPUT
     - name: Save Docker image
       run: docker save ${{ steps.build.outputs.image_tag }} > image.tar
@@ -148,11 +151,11 @@ jobs:
         curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.47.0
     - name: Scan Docker image
       run: |
-        # Print the image name for debugging
-        echo "Scanning image: ${{ needs.build-image.outputs.image_tag }}"
+        # Get the first image from docker images command
+        IMAGE_TO_SCAN=$(docker images --format "{{.Repository}}:{{.Tag}}" | head -n 1)
         
-        # Verify the image is loaded
-        docker images
+        # Debug output
+        echo "Found image to scan: ${IMAGE_TO_SCAN}"
         
         trivy image \
           --exit-code 1 \
@@ -161,7 +164,7 @@ jobs:
           --output trivy-results.txt \
           --timeout 10m \
           --no-progress \
-          "${{ needs.build-image.outputs.image_tag }}"
+          "${IMAGE_TO_SCAN}"
     - name: Check scan results
       run: |
         if [ -s trivy-results.txt ]; then
