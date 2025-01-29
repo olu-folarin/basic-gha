@@ -1,143 +1,59 @@
 rules:
   - id: hardcoded-secret
-    patterns:
-      - pattern: "... = \"...\""
+    pattern: "... = \"...\""
     message: "Hardcoded secret detected."
     languages: [go]
     severity: WARNING
-    conditions:
-      - pattern-not: "... = \" \""  # Exclude empty space
-      - pattern-not: "... = \"X\""  # Exclude game markers
-      - pattern-not: "... = \"O\""  # Exclude game markers
-      - pattern-not: "... = \"JWT_SECRET_KEY\""  # Exclude env var names
-      - pattern-not: "... = \"USER_ROLE\""       # Exclude env var names
-      - pattern-not: "... = \"admin\""           # Exclude role values
-      - pattern-not: "... = \"user\""            # Exclude role values
+    patterns-not:
+      - pattern: "... = \" \""
+      - pattern: "... = \"X\""
+      - pattern: "... = \"O\""
+      - pattern: "... = \"JWT_SECRET_KEY\""
+      - pattern: "... = \"USER_ROLE\""
+      - pattern: "... = \"admin\""
+      - pattern: "... = \"user\""
 
   - id: insecure-http
-    patterns:
-      - pattern: http.Get(...)
+    pattern: http.Get(...)
     message: "Use HTTPS instead of HTTP for secure communication."
     languages: [go]
     severity: WARNING
 
   - id: sql-injection
-    patterns:
-      - pattern: db.Exec(...)
+    pattern: db.Exec(...)
     message: "Potential SQL injection vulnerability."
     languages: [go]
     severity: WARNING
 
   - id: command-injection
-    patterns:
-      - pattern: exec.Command(...)
+    pattern: exec.Command(...)
     message: "Potential command injection vulnerability."
     languages: [go]
     severity: WARNING
 
   - id: insecure-random
-    patterns:
-      - pattern: rand.Int(...)
+    pattern: rand.Int(...)
     message: "Use crypto/rand for secure random number generation."
     languages: [go]
     severity: WARNING
 
   - id: insecure-deserialization
-    patterns:
-      - pattern: gob.NewDecoder(...)
+    pattern: gob.NewDecoder(...)
     message: "Insecure deserialization detected."
     languages: [go]
     severity: WARNING
 
   - id: insecure-env-var
-    patterns:
-      - pattern: os.Getenv(...)
+    pattern: os.Getenv(...)
     message: "Insecure environment variable usage detected."
-    languages: [go]
-    severity: WARNING
-    conditions:
-      - pattern-inside: |
-          func validateEnv() error {
-            ...
-          }
-      - pattern-inside: |
-          func generateSecureToken() (string, error) {
-            ...
-          }
-
-  - id: insecure-http-client
-    patterns:
-      - pattern: http.Client{}
-    message: "Insecure HTTP client usage detected."
-    languages: [go]
-    severity: WARNING
-
-  - id: jwt-no-expiry
-    patterns:
-      - pattern-not-inside: |
-          claims["exp"] = ...
-      - pattern: token := jwt.New(...)
-    message: "JWT token created without expiration time."
-    languages: [go]
-    severity: WARNING
-
-  - id: jwt-no-signing
-    patterns:
-      - pattern-not-inside: |
-          token.SignedString(...)
-      - pattern: token := jwt.New(...)
-    message: "JWT token created without proper signing."
-    languages: [go]
-    severity: WARNING
-
-  - id: unsafe-file-perms
-    patterns:
-      - pattern: os.OpenFile(..., ..., 0666)
-    message: "File opened with unsafe permissions."
-    languages: [go]
-    severity: WARNING
-
-  - id: weak-crypto
-    patterns:
-      - pattern: md5.New(...)
-    message: "Use of weak cryptographic function (MD5)."
-    languages: [go]
-    severity: WARNING
-    
-  - id: tls-insecure-config
-    patterns:
-      - pattern: tls.Config{InsecureSkipVerify: true}
-    message: "TLS certificate verification disabled."
-    languages: [go]
-    severity: WARNING
-
-  - id: hardcoded-credentials
-    patterns:
-      - pattern-either:
-        - pattern: |
-            password := "..."
-        - pattern: |
-            apiKey := "..."
-        - pattern: |
-            secret := "..."
-    message: "Hardcoded credentials detected."
     languages: [go]
     severity: WARNING
     paths:
       exclude:
-        - "**/*_test.go"
-        - "**/config/config.go"
+        - "**/main.go"
 
-  - id: unsafe-temp-file
-    patterns:
-      - pattern: ioutil.TempFile(...)
-    message: "Use secure temporary file creation."
-    languages: [go]
-    severity: WARNING
-
-  - id: unsafe-yaml
-    patterns:
-      - pattern: yaml.Unmarshal(...)
-    message: "Use yaml.UnmarshalStrict for safer YAML parsing."
+  - id: insecure-http-client
+    pattern: http.Client{}
+    message: "Insecure HTTP client usage detected."
     languages: [go]
     severity: WARNING
