@@ -1,16 +1,12 @@
 rules:
   - id: hardcoded-secret
-    patterns:
-      - pattern-either:
-          - pattern-regex: '(?i)(secret|password|token|key|credential|auth).*=.*"[^"]+"'
-          - pattern-regex: '(?i)(api[_-]?key|access[_-]?key|secret[_-]?key).*=.*"[^"]+"'
-    patterns-not:
+    pattern-either:
       - pattern: |
-          os.Getenv("...")
+          $X = "=~/[A-Za-z0-9+/]{40,}/"
       - pattern: |
-          os.Getenv($X) == ""
+          $X = "=~/[0-9a-f]{32,}/"
       - pattern: |
-          $X := os.Getenv("...")
+          $X = "=~/[A-Za-z0-9-_]{40,}/"
     message: "Hardcoded secret detected."
     languages: [go]
     severity: WARNING
