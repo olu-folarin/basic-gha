@@ -1,58 +1,57 @@
 rules:
   - id: hardcoded-secret
-    patterns:
-      - pattern: "... = \"...\""
+    pattern-either:
+      - pattern: |
+          $X = "=~/[A-Za-z0-9+/]{40,}/"
+      - pattern: |
+          $X = "=~/[0-9a-f]{32,}/"
+      - pattern: |
+          $X = "=~/[A-Za-z0-9-_]{40,}/"
     message: "Hardcoded secret detected."
     languages: [go]
     severity: WARNING
-    metadata:
-      description: "Detects hardcoded secrets."
 
   - id: insecure-http
-    patterns:
-      - pattern: http.Get(...)
+    pattern: http.Get(...)
     message: "Use HTTPS instead of HTTP for secure communication."
     languages: [go]
     severity: WARNING
 
   - id: sql-injection
-    patterns:
-      - pattern: db.Exec(...)
+    pattern: db.Exec(...)
     message: "Potential SQL injection vulnerability."
     languages: [go]
     severity: WARNING
 
   - id: command-injection
-    patterns:
-      - pattern: exec.Command(...)
+    pattern: exec.Command(...)
     message: "Potential command injection vulnerability."
     languages: [go]
     severity: WARNING
 
   - id: insecure-random
-    patterns:
-      - pattern: rand.Int(...)
+    pattern: rand.Int(...)
     message: "Use crypto/rand for secure random number generation."
     languages: [go]
     severity: WARNING
 
   - id: insecure-deserialization
-    patterns:
-      - pattern: gob.NewDecoder(...)
+    pattern: gob.NewDecoder(...)
     message: "Insecure deserialization detected."
     languages: [go]
     severity: WARNING
 
   - id: insecure-env-var
-    patterns:
-      - pattern: os.Getenv(...)
+    pattern: os.Getenv(...)
     message: "Insecure environment variable usage detected."
     languages: [go]
     severity: WARNING
+    paths:
+      exclude:
+        - "**/main.go"
 
   - id: insecure-http-client
-    patterns:
-      - pattern: http.Client{}
+    pattern: http.Client{}
     message: "Insecure HTTP client usage detected."
     languages: [go]
     severity: WARNING

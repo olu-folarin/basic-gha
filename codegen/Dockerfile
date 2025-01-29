@@ -1,32 +1,45 @@
-# Use the official Golang image as the base image for the build stage
-FROM golang:1.22.7-alpine as builder 
+# Use a specific version of Golang Alpine
+FROM golang:1.21-alpine3.19 AS builder
 
-# Set the working directory inside the container
+# Set the working directory
 WORKDIR /app
 
-# Copy the Go modules manifests into the container
+# Install git and ca-certificates
+RUN apk add --no-cache git ca-certificates
+
+# Copy only dependency files first for better caching
 COPY go.mod go.sum ./
+RUN go mod download
 
-# Download the Go modules for the application
-RUN go mod download 
-
-# Copy the source code into the container
+# Copy the rest of the source code
 COPY . .
 
-# Build the Go application
-RUN go build -o main . 
+# Build with security flags
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o main .
 
-# Use a minimal base image for the final image 
-FROM alpine:latest
+# Use a specific Alpine version for the final image
+FROM alpine:3.19
 
-# Set the working directory inside the container to /root 
-WORKDIR /root/
+# Add non-root user
+RUN adduser -D appuser
 
-# Copy the binary from the builder stage into the final image 
-COPY --from=builder /app/main . 
+# Install CA certificates for HTTPS
+RUN apk add --no-cache ca-certificates
 
-# Expose the application port on the container
-EXPOSE 8080
+WORKDIR /app
 
-# Command to run the application when the container starts
-CMD ["./main"] 
+# Copy only the binary
+COPY --from=builder /app/main .
+
+# Set ownership
+RUN chown -R appuser:appuser /app
+
+# Use non-root user
+USER appuser
+
+# Set environment variables
+ENV JWT_SECRET_KEY=""
+ENV USER_ROLE=""
+
+# Command to run the application
+CMD ["./main"]

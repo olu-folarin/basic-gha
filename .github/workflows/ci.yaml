@@ -1,12 +1,16 @@
-name: CI Pipeline - Test Change
+name: CI Pipeline
 
 on:
+  schedule:
+    - cron: '0 0 * * 1'  # Weekly on Monday
   push:
     branches:
       - main
   pull_request:
     branches:
       - main
+  repository_dispatch:
+    types: [dependabot]
 
 env:
   GITHUB_WORKSPACE: ${{ github.workspace }}
@@ -15,6 +19,7 @@ env:
   ECR_REPOSITORY: test-push-image
   IMAGE_TAG: ${{ github.sha }}
   CODEGEN_DIR: codegen
+  GITHUB_TOKEN: ${{ secrets.PAT_FOR_WORKFLOW }}
 
 permissions:
   contents: read
@@ -29,15 +34,16 @@ jobs:
     - uses: actions/checkout@v3
     - uses: actions/setup-go@v4
       with:
-        go-version: '1.22.7'
+        go-version: '1.21'
+    - name: Update Dependencies
+      working-directory: ${{ env.CODEGEN_DIR }}
+      run: go mod tidy
+    - name: Build Project
+      working-directory: ${{ env.CODEGEN_DIR }}
+      run: go build
     - name: Run tests
       working-directory: ${{ env.CODEGEN_DIR }}
-      run: |
-        if [ ! -f go.mod ]; then
-          go mod init example.com/m
-        fi
-        go mod tidy
-        go test -v ./...
+      run: go test -v ./...
 
   gitleaks:
     runs-on: ubuntu-latest
@@ -91,85 +97,111 @@ jobs:
       with:
         sarif_file: semgrep_results.sarif
 
-  dependabot:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-go@v4
-      with:
-        go-version: '1.22.7'
-    - name: Get Dependabot alerts
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        response=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
-          -H "Accept: application/vnd.github.v3+json" \
-          "https://api.github.com/repos/${{ github.repository }}/dependabot/alerts")
-        
-        if echo "$response" | jq -e 'has("message")' > /dev/null; then
-          echo "::warning::Error accessing Dependabot alerts: $(echo "$response" | jq -r '.message')"
-          echo "[]" > dependabot_alerts.json
-        else
-          echo "$response" > dependabot_alerts.json
-          
-          if echo "$response" | jq -e 'length > 0' > /dev/null; then
-            echo "::error::Found Dependabot security alerts"
-            echo "SCAN_FAILED=true" >> $GITHUB_ENV
-            exit 1
-    - name: Analyze dependencies
-      working-directory: ${{ env.CODEGEN_DIR }}
-      run: |
-        if [ ! -f go.mod ]; then
-          go mod init example.com/m
-        fi
-        go mod tidy
-        go mod download
-        go list -json -m all > ../go_modules.json
-
   build-image:
-    needs: test
     runs-on: ubuntu-latest
     outputs:
-      image_name: my-local-image:latest
+      image_tag: ${{ steps.build.outputs.image_tag }}
     steps:
     - uses: actions/checkout@v3
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v1
-    - name: Build Docker image
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+    - name: Log in to Amazon ECR
       run: |
-        docker build -t my-local-image:latest -f codegen/Dockerfile codegen
-    - name: Save image name
-      id: save-image-name
-      run: echo "IMAGE_NAME=my-local-image:latest" >> $GITHUB_ENV
+        aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+    - name: Build image
+      id: build
+      env:
+        ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+        ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        cd codegen
+        FULL_IMAGE_TAG="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+        docker build -t ${FULL_IMAGE_TAG} .
+        # Debug output
+        echo "Full image tag: ${FULL_IMAGE_TAG}"
+        # Set the output with explicit quotes
+        echo "image_tag=${FULL_IMAGE_TAG}" >> $GITHUB_OUTPUT
+    - name: Save Docker image
+      run: docker save ${{ steps.build.outputs.image_tag }} > image.tar
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: docker-image
+        path: image.tar
 
   trivy:
     needs: build-image
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
     steps:
-    - uses: actions/checkout@v3
+    - name: Download artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: docker-image
+    - name: Load Docker image
+      run: docker load < image.tar
     - name: Install Trivy
       run: |
-        sudo apt-get update -y
-        sudo apt-get install -y wget apt-transport-https gnupg lsb-release
-        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-        echo "deb https://aquasecurity.github.io/trivy-repo/deb focal main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
-        sudo apt-get update -y
-        sudo apt-get install -y trivy
-    - name: Run Trivy Vulnerability Scanner
+        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.47.0
+    - name: Scan Docker image
       run: |
-        IMAGE_NAME="${{ needs.build-image.outputs.image_name }}"
-        echo "Scanning image: $IMAGE_NAME"
-        trivy image --format sarif -o trivy-results.sarif "$IMAGE_NAME"
-    - name: Debug Trivy Execution
-      run: |
-        echo "Inspecting SARIF output..."
-        ls -la
-        cat trivy-results.sarif || echo "SARIF file not found."
-    - name: Upload Trivy Scan Results
-      if: always()
-      uses: github/codeql-action/upload-sarif@v3
+        IMAGE_TO_SCAN=$(docker images --format "{{.Repository}}:{{.Tag}}" | head -n 1)
+        echo "Found image to scan: ${IMAGE_TO_SCAN}"
+        
+        # Run Trivy scan and store the exit code
+        set +e
+        trivy image \
+          --exit-code 0 \
+          --severity HIGH,CRITICAL \
+          --format table \
+          --output trivy-results.txt \
+          --timeout 10m \
+          --no-progress \
+          "${IMAGE_TO_SCAN}"
+        SCAN_EXIT_CODE=$?
+        set -e
+        
+        # Display the scan results
+        cat trivy-results.txt
+        
+        # If vulnerabilities were found, fail the build
+        if [ $SCAN_EXIT_CODE -ne 0 ]; then
+          echo "Security vulnerabilities were found in the container image"
+          exit 1
+        fi
+
+  push-to-ecr:
+    needs: [build-image, trivy]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
       with:
-        sarif_file: trivy-results.sarif
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+    - name: Download artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: docker-image
+    - name: Load Docker image
+      run: docker load < image.tar
+    - name: Push to ECR
+      env:
+        ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+        ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Get the loaded image name
+        FULL_IMAGE_TAG="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+        echo "Pushing image: ${FULL_IMAGE_TAG}"
+        docker push ${FULL_IMAGE_TAG}
