@@ -4,6 +4,13 @@ rules:
       - pattern-either:
           - pattern-regex: '(?i)(secret|password|token|key|credential|auth).*=.*"[^"]+"'
           - pattern-regex: '(?i)(api[_-]?key|access[_-]?key|secret[_-]?key).*=.*"[^"]+"'
+    patterns-not:
+      - pattern: |
+          os.Getenv("...")
+      - pattern: |
+          os.Getenv($X) == ""
+      - pattern: |
+          $X := os.Getenv("...")
     message: "Hardcoded secret detected."
     languages: [go]
     severity: WARNING
