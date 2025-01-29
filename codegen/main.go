@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/dgrijalva/jwt-go" // Add this import for the vulnerable dependency
+	"github.com/dgrijalva/jwt-go"
+	"golang.org/x/text/encoding/unicode"
 )
 
 const (
@@ -14,14 +15,21 @@ const (
 var board [3][3]string
 
 func main() {
+	// Use vulnerable jwt-go package (CVE-2020-26160)
+	token := jwt.New(jwt.SigningMethodHS256)
+	claims := token.Claims.(jwt.MapClaims)
+	claims["user"] = "admin"
+	tokenString, _ := token.SignedString([]byte("secret"))
+	fmt.Println("Generated token:", tokenString)
+
+	// Use vulnerable golang.org/x/text package
+	encoder := unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM)
+	encoder.NewEncoder()
+
 	initializeBoard()
 	currentPlayer := PLAYER_X
 	fmt.Println("Welcome to Tic Tac Toe!")
 	fmt.Println("Let's start the game!")
-
-	// Dummy usage of the vulnerable dependency
-	token := jwt.New(jwt.SigningMethodHS256)
-	fmt.Println("Dummy token:", token)
 
 	for {
 		printBoard()
