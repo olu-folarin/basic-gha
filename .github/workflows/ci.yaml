@@ -126,12 +126,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+    - name: Log in to Amazon ECR
+      run: |
+        aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
     - name: Install Trivy
       run: |
-        curl -sSL https://github.com/aquasecurity/trivy/releases/download/v0.29.2/trivy_0.29.2_Linux-64bit.deb -o trivy.deb
-        sudo dpkg -i trivy.deb
+        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.47.0
     - name: Scan Docker image
       run: |
+        # Pull the image first
+        docker pull ${{ needs.build-image.outputs.image_tag }}
+        
         trivy image \
           --exit-code 1 \
           --severity HIGH,CRITICAL \
@@ -139,9 +150,7 @@ jobs:
           --output trivy-results.txt \
           --timeout 10m \
           --no-progress \
-          --skip-db-update \
           ${{ needs.build-image.outputs.image_tag }}
-      continue-on-error: true
     - name: Check scan results
       run: |
         if [ -s trivy-results.txt ]; then
