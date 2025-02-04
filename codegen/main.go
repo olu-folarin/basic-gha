@@ -21,7 +21,7 @@ func main() {
     // Validate environment variables
     if err := validateEnv(); err != nil {
         fmt.Printf("Configuration error: %v\n", err)
-        os.Exit(1)
+        os.Exit(1) 
     }
 
     // Generate JWT token
@@ -58,7 +58,7 @@ func main() {
         currentPlayer = switchPlayer(currentPlayer)
         if err := makeMove(currentPlayer); err != nil {
             fmt.Printf("Error: %v\n", err)
-            continue
+            continue 
         }
     }
 }
