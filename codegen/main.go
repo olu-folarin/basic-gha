@@ -58,7 +58,7 @@ func main() {
         currentPlayer = switchPlayer(currentPlayer)
         if err := makeMove(currentPlayer); err != nil {
             fmt.Printf("Error: %v\n", err)
-            continue
+            continue 
         }
     }
 }
