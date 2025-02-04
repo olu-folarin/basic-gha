@@ -21,7 +21,7 @@ func main() {
     // Validate environment variables
     if err := validateEnv(); err != nil {
         fmt.Printf("Configuration error: %v\n", err)
-        os.Exit(1)
+        os.Exit(1) 
     }
 
     // Generate JWT token
