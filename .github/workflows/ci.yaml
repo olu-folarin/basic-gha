@@ -1,16 +1,7 @@
 name: CI Pipeline
 
 on:
-  schedule:
-    - cron: '0 0 * * 1'  # Weekly on Monday
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
-  repository_dispatch:
-    types: [dependabot]
+  workflow_call:
 
 env:
   GITHUB_WORKSPACE: ${{ github.workspace }}
