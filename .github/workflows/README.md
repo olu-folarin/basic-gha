@@ -54,3 +54,19 @@ This will allow you to reuse the CI pipeline defined in this workflow in other r
 
 - **Customization**: You can further customize the reusable workflow by adding inputs and modifying steps as needed. Refer to the [GitHub Actions documentation on reusable workflows](https://docs.github.com/en/actions/using-workflows/reusing-workflows) for more details.
 - **Dependencies**: The workflow assumes that certain directories (like `codegen`) exist and contain a valid Go project. Adjust the workflow steps if your project structure differs.
+
+## Terraform Automation Integration
+
+This workflow repository integrates with the Terraform automation defined in [tf-automation](https://github.com/olu-folarin/tf-automation/tree/main/modules). The following modules are used:
+
+- **IAM Module**: Provisions an IAM user with credentials and attaches the necessary ECR permissions via the AmazonEC2ContainerRegistryFullAccess policy.
+- **Secrets Module**: Stores the IAM credentials and ECR repository URL securely in AWS Secrets Manager, ensuring that sensitive information is managed safely.
+- **ECR Module**: Manages the ECR repository, which is used as the target for pushing Docker images built by the CI pipeline.
+
+**Why is it set up this way?**
+
+- **Separation of Concerns:** Infrastructure provisioning (via Terraform) is decoupled from the CI/CD workflow. This ensures that sensitive credentials and repository configurations are managed independently and securely.
+- **Enhanced Security:** By using dedicated modules to handle IAM and secrets management, the setup adheres to best practices in security, reducing the risk of exposing sensitive credentials.
+- **Modularity and Maintainability:** The modular structure allows each component (IAM, Secrets, ECR) to be updated or reused independently, making the overall system easier to maintain and scale, especially as new components (like Kubernetes) are integrated in the future.
+
+This integrated approach ensures that the GitHub Actions workflows have reliable access to the necessary AWS resources and credentials required to build, test, and push Docker images as part of your CI/CD process.
