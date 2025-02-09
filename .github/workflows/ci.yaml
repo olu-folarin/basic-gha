@@ -2,6 +2,19 @@ name: CI Pipeline
 
 on:
   workflow_call:
+    secrets:
+      AWS_ACCOUNT_ID:
+        required: true
+      AWS_REGION:
+        required: true
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      ECR_REPOSITORY:
+        required: true
+      PAT_FOR_WORKFLOW:
+        required: false
 
 env:
   GITHUB_WORKSPACE: ${{ github.workspace }}
